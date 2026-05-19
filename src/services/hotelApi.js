@@ -137,9 +137,9 @@ export const paymentService = {
 
 export const reviewService = {
   getAll: (page = 0, size = 10) =>
-    api.get('/api/reviews', { params: { page, size, projection: 'review', sort: 'reviewDate,desc' } }).then((res) => pageResponse(res, 'reviews', normalizeReview)),
+    api.get('/api/review-management/reviews', { params: { page, size, sortBy: 'reviewDate', sortDir: 'desc' } }),
   getByRating: (rating, page = 0, size = 10) =>
-    api.get('/api/reviews/search/by-rating', { params: { rating, page, size, projection: 'review', sort: 'reviewDate,desc' } }).then((res) => pageResponse(res, 'reviews', normalizeReview)),
+    api.get('/api/review-management/reviews/by-rating', { params: { rating, page, size, sortBy: 'reviewDate', sortDir: 'desc' } }),
   getByHotel: (hotelId, page = 0, size = 5) =>
     api.get('/api/reviews/search/by-hotel', { params: { hotelId, page, size, projection: 'review', sort: 'reviewDate,desc' } }).then((res) => pageResponse(res, 'reviews', normalizeReview)),
   getRecent: () => api.get('/api/reviews/recent'),

@@ -77,6 +77,7 @@ export default function ReservationsPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="font-semibold text-gray-100">Reservation #{r.reservationId}</h3>
+                  {r.hotelName && <p className="text-sm text-blue-400 mt-1">{r.hotelName}</p>}
                   <p className="text-sm text-gray-400 mt-1">Room {r.roomNumber} — {r.roomTypeName}</p>
                   <p className="text-sm text-gray-500 mt-1">{r.guestName} · {r.guestEmail}</p>
                 </div>

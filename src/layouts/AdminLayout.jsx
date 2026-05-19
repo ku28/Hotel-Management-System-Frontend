@@ -25,7 +25,7 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-gray-950 flex font-[Inter,system-ui,sans-serif]">
       <aside className="w-64 bg-gray-900 border-r border-gray-800 text-white flex flex-col min-h-screen fixed">
         <div className="px-6 py-5 border-b border-gray-800">
-          <h1 className="text-lg font-bold tracking-tight">HMS<span className="text-blue-400">.</span> Admin</h1>
+          <h1 className="text-lg font-bold tracking-tight">Hotel Management System<span className="text-blue-400">.</span> Admin</h1>
         </div>
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => (

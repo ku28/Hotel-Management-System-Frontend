@@ -64,6 +64,7 @@ export default function AdminReservations() {
               <th className="text-left py-3 px-4 text-gray-400 font-medium">Guest</th>
               <th className="text-left py-3 px-4 text-gray-400 font-medium">Email</th>
               <th className="text-left py-3 px-4 text-gray-400 font-medium">Phone</th>
+              <th className="text-left py-3 px-4 text-gray-400 font-medium">Hotel</th>
               <th className="text-left py-3 px-4 text-gray-400 font-medium">Room</th>
               <th className="text-left py-3 px-4 text-gray-400 font-medium">Check-in</th>
               <th className="text-left py-3 px-4 text-gray-400 font-medium">Check-out</th>
@@ -77,6 +78,7 @@ export default function AdminReservations() {
                 <td className="py-3 px-4 text-gray-200">{r.guestName}</td>
                 <td className="py-3 px-4 text-gray-400">{r.guestEmail}</td>
                 <td className="py-3 px-4 text-gray-400">{r.guestPhone}</td>
+                <td className="py-3 px-4 text-blue-400">{r.hotelName || '—'}</td>
                 <td className="py-3 px-4 text-gray-300">{r.roomNumber}</td>
                 <td className="py-3 px-4">
                   {editingId === r.reservationId ? (

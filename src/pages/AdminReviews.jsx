@@ -68,7 +68,14 @@ export default function AdminReviews() {
                     <span className="text-sm font-bold text-yellow-400">{r.rating}/5</span>
                     <span className="text-xs text-gray-600">·</span>
                     <span className="text-xs text-gray-500">Reservation #{r.reservationId}</span>
+                    {r.hotelName && (
+                      <>
+                        <span className="text-xs text-gray-600">·</span>
+                        <span className="text-xs text-blue-400 font-medium">{r.hotelName}</span>
+                      </>
+                    )}
                   </div>
+                  {r.guestName && <p className="text-xs text-gray-500 mb-1">By {r.guestName}</p>}
                   <p className="text-gray-300 text-sm leading-relaxed">{r.comment}</p>
                   <p className="text-xs text-gray-500 mt-2">{r.reviewDate}</p>
                 </div>

@@ -8,16 +8,16 @@ export default function PublicLayout() {
   const handleLogout = () => { logout(); navigate('/'); };
 
   return (
-    <div className="min-h-screen bg-gray-950 font-[Inter,system-ui,sans-serif]">
+    <div className="min-h-screen bg-gray-950 font-[Inter,system-ui,sans-serif] flex flex-col">
       <nav className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link to="/" className="text-xl font-bold tracking-tight text-gray-100">
-              HMS<span className="text-blue-500">.</span>
+              Hotel Management System<span className="text-blue-500">.</span>
             </Link>
             <div className="hidden md:flex items-center gap-8">
               <Link to="/hotels" className="text-sm font-medium text-gray-400 hover:text-gray-100 transition-colors">Hotels</Link>
-              {isAuthenticated && (
+              {isAuthenticated && !isAdmin() && (
                 <Link to="/reservations" className="text-sm font-medium text-gray-400 hover:text-gray-100 transition-colors">My Reservations</Link>
               )}
               {isAuthenticated && isAdmin() && (
@@ -40,8 +40,8 @@ export default function PublicLayout() {
           </div>
         </div>
       </nav>
-      <main><Outlet /></main>
-      <footer className="bg-gray-900 border-t border-gray-800 py-8 mt-16">
+      <main className="flex-1"><Outlet /></main>
+      <footer className="bg-gray-900 border-t border-gray-800 py-8 mt-auto">
         <div className="max-w-7xl mx-auto px-4 text-center text-sm text-gray-500">
           © 2026 Hotel Management System. All rights reserved.
         </div>
