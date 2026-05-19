@@ -10,7 +10,7 @@ import SignupPage from './pages/SignupPage';
 import ReservationsPage from './pages/ReservationsPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminHotels from './pages/AdminHotels';
-import AdminRooms from './pages/AdminRooms';
+import AdminRooms from './pages/AdminRoom';
 import AdminBooking from './pages/AdminBooking';
 import AdminReservations from './pages/AdminReservations';
 import AdminReviews from './pages/AdminReviews';
