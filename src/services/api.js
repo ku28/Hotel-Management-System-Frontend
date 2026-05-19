@@ -21,7 +21,6 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('hms_token');
       localStorage.removeItem('hms_user');
-      window.location.href = '/login';
     }
     return Promise.reject(error);
   }

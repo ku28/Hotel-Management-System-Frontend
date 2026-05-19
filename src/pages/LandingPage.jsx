@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
+import useAuthStore from '../store/authStore';
 
 export default function LandingPage() {
+  const { isAuthenticated } = useAuthStore();
+
   return (
     <div>
       {/* Hero Section */}
@@ -21,8 +24,8 @@ export default function LandingPage() {
                 Browse Hotels
                 <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
               </Link>
-              <Link to="/signup" className="inline-flex items-center px-8 py-3.5 border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 font-semibold rounded-xl transition-all">
-                Get Started
+              <Link to={isAuthenticated ? "/hotels" : "/signup"} className="inline-flex items-center px-8 py-3.5 border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 font-semibold rounded-xl transition-all">
+                {isAuthenticated ? 'Explore Hotels' : 'Get Started'}
               </Link>
             </div>
           </div>
@@ -52,7 +55,7 @@ export default function LandingPage() {
       <section className="py-20 bg-gray-950">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-100">Why Choose HMS</h2>
+            <h2 className="text-3xl font-bold text-gray-100">Why Choose Hotel Management System</h2>
             <p className="mt-3 text-gray-500 max-w-md mx-auto">Premium hotel booking experience with enterprise-grade reliability</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
@@ -74,10 +77,10 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="py-20 bg-gray-900 border-t border-gray-800">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-gray-100">Ready to Book?</h2>
-          <p className="mt-4 text-gray-400">Join thousands of satisfied guests. Sign up today and get exclusive deals.</p>
-          <Link to="/signup" className="mt-8 inline-flex items-center px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-lg">
-            Create Account
+          <h2 className="text-3xl font-bold text-gray-100">{isAuthenticated ? 'Explore Hotels' : 'Ready to Book?'}</h2>
+          <p className="mt-4 text-gray-400">{isAuthenticated ? 'Browse our collection of premium hotels and find your perfect stay.' : 'Join thousands of satisfied guests. Sign up today and get exclusive deals.'}</p>
+          <Link to={isAuthenticated ? "/hotels" : "/signup"} className="mt-8 inline-flex items-center px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-lg">
+            {isAuthenticated ? 'Browse Hotels' : 'Create Account'}
           </Link>
         </div>
       </section>
