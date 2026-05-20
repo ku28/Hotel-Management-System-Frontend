@@ -27,7 +27,7 @@ export default function LoginPage() {
     try {
       const res = await authService.login(form);
       const data = res.data?.data;
-      login({ fullName: data.fullName, email: data.email, role: data.role }, data.token);
+      login({ fullName: data.fullName, email: data.email, role: data.role, phone: data.phone }, data.token);
       // If there's a redirect path (e.g. from booking), go there; otherwise default
       if (redirectTo) {
         navigate(redirectTo, { replace: true });
