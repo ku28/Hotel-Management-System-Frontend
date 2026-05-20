@@ -10,9 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -21,9 +18,11 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
 
           script: |
-            cd ~/hotel-frontend
+            cd ~/Hotel-Management-System-Frontend
 
             git pull origin main
+
+            echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" > .env
 
             docker stop frontend || true
             docker rm frontend || true
