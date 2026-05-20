@@ -46,7 +46,7 @@ export default function AdminHotels() {
           return { ...h, amenities: [] };
         }
       }));
-      setHotels(enrichedHotels);
+      setHotels(enrichedHotels.sort((a, b) => b.hotelId - a.hotelId));
       setRoomCounts(counts);
     } catch (e) { console.error(e); }
     setLoading(false);

@@ -15,7 +15,7 @@ export default function AdminReviews() {
       const res = filterRating > 0
         ? await reviewService.getByRating(filterRating, page, 15)
         : await reviewService.getAll(page, 15);
-      setReviews(res.data?.data?.content || []);
+      setReviews((res.data?.data?.content || []).sort((a, b) => b.reviewId - a.reviewId));
       setTotalPages(res.data?.data?.totalPages || 0);
       setTotalElements(res.data?.data?.totalElements || 0);
     } catch (e) { console.error(e); }

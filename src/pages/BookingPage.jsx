@@ -6,7 +6,7 @@ import useAuthStore from '../store/authStore';
 export default function BookingPage() {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, isAdmin } = useAuthStore();
   const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -23,6 +23,11 @@ export default function BookingPage() {
     if (!isAuthenticated) {
       // Redirect to login but pass current path so user comes back here after login
       navigate('/login', { state: { from: `/booking/${roomId}` } });
+      return;
+    }
+    // Admin users should not book through the public flow
+    if (isAdmin()) {
+      navigate('/admin', { replace: true });
       return;
     }
     roomService.getById(roomId).then((res) => {

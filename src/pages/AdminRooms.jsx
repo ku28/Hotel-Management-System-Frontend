@@ -16,8 +16,11 @@ export default function AdminRooms() {
   const [editingRoom, setEditingRoom] = useState(null);
   const [roomForm, setRoomForm] = useState({ roomNumber: '', roomTypeId: '', hotelId: '', isAvailable: true });
   const [typeForm, setTypeForm] = useState({ typeName: '', description: '', maxOccupancy: '', pricePerNight: '' });
-  const [linkForm, setLinkForm] = useState({ roomId: '', amenityId: '' });
+  const [linkForm, setLinkForm] = useState({ roomId: '', amenityIds: [] });
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
   const fetchInitial = async () => {
     try {
@@ -32,19 +35,24 @@ export default function AdminRooms() {
     } catch (e) { console.error(e); }
   };
 
-  const fetchRooms = async (hotelId) => {
+  const fetchRooms = async (hotelId, pg = page) => {
     setLoading(true);
     try {
       const res = hotelId
-        ? await roomService.getByHotel(hotelId)
-        : await roomService.getAll(0, 100);
-      setRooms(res.data?.data?.content || []);
+        ? await roomService.getByHotel(hotelId, pg, 10)
+        : await roomService.getAll(pg, 10);
+      const data = res.data?.data;
+      // Sort by roomId descending so newest entries appear first
+      const sortedRooms = (data?.content || []).sort((a, b) => b.roomId - a.roomId);
+      setRooms(sortedRooms);
+      setTotalPages(data?.totalPages || 0);
+      setTotalElements(data?.totalElements || 0);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
 
   useEffect(() => { fetchInitial(); }, []);
-  useEffect(() => { fetchRooms(selectedHotel); }, [selectedHotel]);
+  useEffect(() => { fetchRooms(selectedHotel, page); }, [selectedHotel, page]);
 
   const handleSaveRoom = async (e) => {
     e.preventDefault(); setSaving(true);
@@ -56,7 +64,8 @@ export default function AdminRooms() {
       }
       setShowRoomForm(false); setEditingRoom(null);
       setRoomForm({ roomNumber: '', roomTypeId: '', hotelId: '', isAvailable: true });
-      fetchRooms(selectedHotel);
+      setPage(0);
+      fetchRooms(selectedHotel, 0);
     } catch (e) { console.error(e); }
     setSaving(false);
   };
@@ -78,9 +87,23 @@ export default function AdminRooms() {
     setSaving(false);
   };
 
+  const handleToggleAmenity = (amenityId) => {
+    setLinkForm(prev => {
+      const ids = prev.amenityIds.includes(amenityId)
+        ? prev.amenityIds.filter(id => id !== amenityId)
+        : [...prev.amenityIds, amenityId];
+      return { ...prev, amenityIds: ids };
+    });
+  };
+
   const handleLinkAmenity = async (e) => {
     e.preventDefault(); setSaving(true);
-    try { await roomAmenityService.addToRoom({ roomId: parseInt(linkForm.roomId), amenityId: parseInt(linkForm.amenityId) }); setShowLinkForm(false); setLinkForm({ roomId: '', amenityId: '' }); fetchRooms(selectedHotel); } catch (e) { console.error(e); }
+    try {
+      for (const amenityId of linkForm.amenityIds) {
+        await roomAmenityService.addToRoom({ roomId: parseInt(linkForm.roomId), amenityId: parseInt(amenityId) });
+      }
+      setShowLinkForm(false); setLinkForm({ roomId: '', amenityIds: [] }); fetchRooms(selectedHotel);
+    } catch (e) { console.error(e); }
     setSaving(false);
   };
 
@@ -91,7 +114,7 @@ export default function AdminRooms() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">Rooms & Amenities</h1>
-          <p className="text-gray-400 text-sm mt-1">Manage rooms, room types, and room amenities</p>
+          <p className="text-gray-400 text-sm mt-1">Manage rooms, room types, and room amenities · {totalElements} total rooms</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setShowTypeForm(true)} className="px-4 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700 cursor-pointer">+ Room Type</button>
@@ -102,7 +125,7 @@ export default function AdminRooms() {
 
       {/* Hotel Filter Dropdown */}
       <div className="mb-6">
-        <select value={selectedHotel} onChange={e => setSelectedHotel(e.target.value)} className="px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[300px]">
+        <select value={selectedHotel} onChange={e => { setSelectedHotel(e.target.value); setPage(0); }} className="px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[300px]">
           <option value="">All Hotels</option>
           {hotels.map(h => <option key={h.hotelId} value={h.hotelId}>{h.name} — {h.location}</option>)}
         </select>
@@ -148,19 +171,39 @@ export default function AdminRooms() {
       )}
       {showLinkForm && (
         <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 mb-6">
-          <h3 className="font-semibold text-gray-100 mb-4">Link Amenity to Room</h3>
-          <form onSubmit={handleLinkAmenity} className="grid sm:grid-cols-2 gap-4">
-            <select required value={linkForm.roomId} onChange={e => setLinkForm({ ...linkForm, roomId: e.target.value })} className={inputClass}>
-              <option value="">Select Room</option>
-              {rooms.map(r => <option key={r.roomId} value={r.roomId}>Room {r.roomNumber} — {r.roomType?.typeName}</option>)}
-            </select>
-            <select required value={linkForm.amenityId} onChange={e => setLinkForm({ ...linkForm, amenityId: e.target.value })} className={inputClass}>
-              <option value="">Select Amenity</option>
-              {amenities.map(a => <option key={a.amenityId} value={a.amenityId}>{a.name}</option>)}
-            </select>
-            <div className="sm:col-span-2 flex gap-2">
-              <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-50 cursor-pointer">{saving ? 'Linking...' : 'Link'}</button>
-              <button type="button" onClick={() => setShowLinkForm(false)} className="px-4 py-2.5 bg-gray-700 text-gray-300 text-sm font-medium rounded-xl cursor-pointer">Cancel</button>
+          <h3 className="font-semibold text-gray-100 mb-4">Link Amenities to Room</h3>
+          <form onSubmit={handleLinkAmenity} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Select Room</label>
+              <select required value={linkForm.roomId} onChange={e => setLinkForm({ ...linkForm, roomId: e.target.value })} className={inputClass}>
+                <option value="">Select Room</option>
+                {rooms.map(r => <option key={r.roomId} value={r.roomId}>Room {r.roomNumber} — {r.roomType?.typeName}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Select Amenities</label>
+              <div className="bg-gray-800 border border-gray-700 rounded-xl p-3 max-h-48 overflow-y-auto space-y-2">
+                {amenities.map(a => (
+                  <label key={a.amenityId} className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-gray-700/50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={linkForm.amenityIds.includes(a.amenityId)}
+                      onChange={() => handleToggleAmenity(a.amenityId)}
+                      className="w-4 h-4 rounded border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 bg-gray-700"
+                    />
+                    <span className="text-sm text-gray-200">{a.name}</span>
+                    {a.description && <span className="text-xs text-gray-500">— {a.description}</span>}
+                  </label>
+                ))}
+                {amenities.length === 0 && <p className="text-sm text-gray-500 text-center py-2">No amenities available</p>}
+              </div>
+              {linkForm.amenityIds.length > 0 && (
+                <p className="text-xs text-blue-400 mt-1.5">{linkForm.amenityIds.length} amenit{linkForm.amenityIds.length === 1 ? 'y' : 'ies'} selected</p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" disabled={saving || linkForm.amenityIds.length === 0} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-50 cursor-pointer">{saving ? 'Linking...' : `Link ${linkForm.amenityIds.length || ''} Amenities`}</button>
+              <button type="button" onClick={() => { setShowLinkForm(false); setLinkForm({ roomId: '', amenityIds: [] }); }} className="px-4 py-2.5 bg-gray-700 text-gray-300 text-sm font-medium rounded-xl cursor-pointer">Cancel</button>
             </div>
           </form>
         </div>
@@ -226,6 +269,15 @@ export default function AdminRooms() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex justify-center gap-2">
+          <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="px-4 py-2 text-sm bg-gray-800 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-700 disabled:opacity-50 cursor-pointer">Previous</button>
+          <span className="px-4 py-2 text-sm text-gray-400">Page {page + 1} of {totalPages}</span>
+          <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1} className="px-4 py-2 text-sm bg-gray-800 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-700 disabled:opacity-50 cursor-pointer">Next</button>
         </div>
       )}
     </div>

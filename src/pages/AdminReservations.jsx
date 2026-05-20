@@ -15,7 +15,7 @@ export default function AdminReservations() {
     setLoading(true);
     try {
       const res = await reservationService.getAll(page, 15);
-      setReservations(res.data?.data?.content || []);
+      setReservations((res.data?.data?.content || []).sort((a, b) => b.reservationId - a.reservationId));
       setTotalPages(res.data?.data?.totalPages || 0);
       setTotalElements(res.data?.data?.totalElements || 0);
     } catch (e) { console.error(e); }
