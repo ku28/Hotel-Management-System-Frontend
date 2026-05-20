@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { reservationService } from '../services/hotelApi';
+import { cachedFetch, invalidateCache } from '../services/cache';
+import RefreshButton from '../components/RefreshButton';
 
 export default function AdminReservations() {
   const [reservations, setReservations] = useState([]);
@@ -12,17 +14,33 @@ export default function AdminReservations() {
   const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
-    setLoading(true);
-    try {
-      const res = await reservationService.getAll(page, 15);
-      setReservations((res.data?.data?.content || []).sort((a, b) => b.reservationId - a.reservationId));
-      setTotalPages(res.data?.data?.totalPages || 0);
-      setTotalElements(res.data?.data?.totalElements || 0);
-    } catch (e) { console.error(e); }
-    setLoading(false);
+    await cachedFetch(
+      'admin-reservations',
+      async (p, s) => {
+        const res = await reservationService.getAll(p, s);
+        return {
+          content: (res.data?.data?.content || []).sort((a, b) => b.reservationId - a.reservationId),
+          totalPages: res.data?.data?.totalPages || 0,
+          totalElements: res.data?.data?.totalElements || 0,
+        };
+      },
+      [page, 15],
+      (data) => {
+        setReservations(data.content);
+        setTotalPages(data.totalPages);
+        setTotalElements(data.totalElements);
+      },
+      setLoading
+    );
   };
 
   useEffect(() => { fetchData(); }, [page]);
+
+  const handleRefresh = async () => {
+    invalidateCache('admin-reservations');
+    await fetchData();
+  };
+
 
   const handleEdit = (r) => {
     setEditingId(r.reservationId);
@@ -34,6 +52,7 @@ export default function AdminReservations() {
     try {
       await reservationService.update(r.reservationId, { ...r, checkInDate: editForm.checkInDate, checkOutDate: editForm.checkOutDate });
       setEditingId(null);
+      invalidateCache('admin-reservations');
       fetchData();
     } catch (e) { console.error(e); }
     setSaving(false);
@@ -41,7 +60,7 @@ export default function AdminReservations() {
 
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this reservation?')) return;
-    try { await reservationService.delete(id); fetchData(); } catch (e) { console.error(e); }
+    try { await reservationService.delete(id); invalidateCache('admin-reservations'); fetchData(); } catch (e) { console.error(e); }
   };
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" /></div>;
@@ -55,6 +74,7 @@ export default function AdminReservations() {
           <h1 className="text-2xl font-bold text-gray-100">All Reservations</h1>
           <p className="text-gray-400 text-sm mt-1">{totalElements} total reservations</p>
         </div>
+        <RefreshButton onRefresh={handleRefresh} />
       </div>
       <div className="bg-gray-800/50 backdrop-blur rounded-xl border border-gray-700 overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">

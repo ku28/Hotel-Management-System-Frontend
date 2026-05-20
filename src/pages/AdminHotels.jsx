@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hotelService, amenityService, hotelAmenityService, roomService } from '../services/hotelApi';
+import { cachedFetch, invalidateCache } from '../services/cache';
+import RefreshButton from '../components/RefreshButton';
 
 export default function AdminHotels() {
   const navigate = useNavigate();
@@ -23,15 +25,12 @@ export default function AdminHotels() {
   const [loadingRooms, setLoadingRooms] = useState(false);
 
   const fetchData = async () => {
-    setLoading(true);
-    try {
+    await cachedFetch('admin-hotels', async (p) => {
       const [hRes, aRes] = await Promise.all([
-        hotelService.getAll(page, 10, ''),
+        hotelService.getAll(p, 10, ''),
         amenityService.getAll(0, 100),
       ]);
       const hotelList = hRes.data?.data?.content || [];
-      setTotalPages(hRes.data?.data?.totalPages || 0);
-      setAmenities(aRes.data?.data?.content || []);
       const counts = {};
       const enrichedHotels = await Promise.all(hotelList.map(async (h) => {
         try {
@@ -46,13 +45,27 @@ export default function AdminHotels() {
           return { ...h, amenities: [] };
         }
       }));
-      setHotels(enrichedHotels.sort((a, b) => b.hotelId - a.hotelId));
-      setRoomCounts(counts);
-    } catch (e) { console.error(e); }
-    setLoading(false);
+      return {
+        hotels: enrichedHotels.sort((a, b) => b.hotelId - a.hotelId),
+        amenities: aRes.data?.data?.content || [],
+        roomCounts: counts,
+        totalPages: hRes.data?.data?.totalPages || 0,
+      };
+    }, [page], (data) => {
+      setHotels(data.hotels);
+      setAmenities(data.amenities);
+      setRoomCounts(data.roomCounts);
+      setTotalPages(data.totalPages);
+    }, setLoading);
   };
 
   useEffect(() => { fetchData(); }, [page]);
+
+  const handleRefresh = async () => {
+    invalidateCache('admin-hotels');
+    await fetchData();
+  };
+
 
   const handleViewRooms = async (hotel) => {
     if (expandedHotel === hotel.hotelId) { setExpandedHotel(null); return; }
@@ -73,6 +86,7 @@ export default function AdminHotels() {
       else { await hotelService.create(form); }
       setShowForm(false); setEditingHotel(null);
       setForm({ name: '', location: '', description: '' });
+      invalidateCache('admin-hotels');
       fetchData();
     } catch (e) { console.error(e); }
     setSaving(false);
@@ -80,7 +94,7 @@ export default function AdminHotels() {
 
   const handleDeleteHotel = async (id) => {
     if (!confirm('Are you sure you want to delete this hotel?')) return;
-    try { await hotelService.delete(id); fetchData(); } catch (e) { console.error(e); }
+    try { await hotelService.delete(id); invalidateCache('admin-hotels'); fetchData(); } catch (e) { console.error(e); }
   };
 
   const handleEditHotel = (h) => {
@@ -91,7 +105,7 @@ export default function AdminHotels() {
 
   const handleSaveAmenity = async (e) => {
     e.preventDefault(); setSaving(true);
-    try { await amenityService.create(amenityForm); setShowAmenityForm(false); setAmenityForm({ name: '', description: '' }); fetchData(); } catch (e) { console.error(e); }
+    try { await amenityService.create(amenityForm); setShowAmenityForm(false); setAmenityForm({ name: '', description: '' }); invalidateCache('admin-hotels'); fetchData(); } catch (e) { console.error(e); }
     setSaving(false);
   };
 
@@ -110,7 +124,7 @@ export default function AdminHotels() {
       for (const amenityId of linkForm.amenityIds) {
         await hotelAmenityService.addToHotel({ hotelId: parseInt(linkForm.hotelId), amenityId: parseInt(amenityId) });
       }
-      setShowLinkForm(false); setLinkForm({ hotelId: '', amenityIds: [] }); fetchData();
+      setShowLinkForm(false); setLinkForm({ hotelId: '', amenityIds: [] }); invalidateCache('admin-hotels'); fetchData();
     } catch (e) { console.error(e); }
     setSaving(false);
   };
@@ -127,6 +141,7 @@ export default function AdminHotels() {
           <p className="text-gray-400 text-sm mt-1">Manage hotels and their amenities</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <RefreshButton onRefresh={handleRefresh} />
           <button onClick={() => setShowAmenityForm(true)} className="px-4 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700 cursor-pointer">+ Amenity</button>
           <button onClick={() => setShowLinkForm(true)} className="px-4 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700 cursor-pointer">Link Amenity</button>
           <button onClick={() => { setShowForm(true); setEditingHotel(null); setForm({ name: '', location: '', description: '' }); }} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 cursor-pointer">+ Hotel</button>

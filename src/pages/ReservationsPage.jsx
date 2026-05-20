@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { reservationService, reviewService } from '../services/hotelApi';
+import { cachedFetch, invalidateCache } from '../services/cache';
+import RefreshButton from '../components/RefreshButton';
 import useAuthStore from '../store/authStore';
 
 export default function ReservationsPage() {
@@ -16,15 +18,30 @@ export default function ReservationsPage() {
   const [reviewError, setReviewError] = useState('');
   const [reviewSuccess, setReviewSuccess] = useState('');
 
-  useEffect(() => {
-    if (!isAuthenticated) { navigate('/login'); return; }
+  const fetchReservations = async () => {
     const email = user?.email;
     if (!email) return;
-    reservationService.getMyReservations(email, page, 10).then((res) => {
-      setReservations(res.data?.data?.content || []);
-      setTotalPages(res.data?.data?.totalPages || 0);
-    }).catch(console.error).finally(() => setLoading(false));
+    await cachedFetch('my-reservations', async (e, p, s) => {
+      const res = await reservationService.getMyReservations(e, p, s);
+      return {
+        content: res.data?.data?.content || [],
+        totalPages: res.data?.data?.totalPages || 0,
+      };
+    }, [email, page, 10], (data) => {
+      setReservations(data.content);
+      setTotalPages(data.totalPages);
+    }, setLoading);
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    fetchReservations();
   }, [page, isAuthenticated]);
+
+  const handleRefresh = async () => {
+    invalidateCache('my-reservations');
+    await fetchReservations();
+  };
 
   const openReviewForm = (reservation) => {
     setReviewingReservation(reservation);
@@ -49,6 +66,7 @@ export default function ReservationsPage() {
       setReviewSuccess(`Review submitted for reservation #${reviewingReservation.reservationId}.`);
       setReviewingReservation(null);
       setReviewForm({ rating: 5, comment: '' });
+      invalidateCache('my-reservations');
     } catch (err) {
       setReviewError(err.response?.data?.message || 'Unable to submit review.');
     } finally {
@@ -60,7 +78,10 @@ export default function ReservationsPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
-      <h1 className="text-2xl font-bold text-gray-100 mb-2">My Reservations</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-bold text-gray-100">My Reservations</h1>
+        <RefreshButton onRefresh={handleRefresh} />
+      </div>
       <p className="text-gray-500 mb-8">View your bookings</p>
       {reviewSuccess && <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-sm text-green-400">{reviewSuccess}</div>}
       {reviewError && <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400">{reviewError}</div>}
