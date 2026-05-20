@@ -6,7 +6,7 @@ import useAuthStore from '../store/authStore';
 export default function BookingPage() {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, isAdmin } = useAuthStore();
   const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -14,7 +14,6 @@ export default function BookingPage() {
   const [paymentMethod, setPaymentMethod] = useState('PAY_ON_PREMISES');
   const [form, setForm] = useState({ guestName: '', guestEmail: '', guestPhone: '', checkInDate: '', checkOutDate: '' });
   const [error, setError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const checkoutMinDate = form.checkInDate
     ? new Date(new Date(form.checkInDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -26,9 +25,14 @@ export default function BookingPage() {
       navigate('/login', { state: { from: `/booking/${roomId}` } });
       return;
     }
+    // Admin users should not book through the public flow
+    if (isAdmin()) {
+      navigate('/admin', { replace: true });
+      return;
+    }
     roomService.getById(roomId).then((res) => {
       setRoom(res.data?.data);
-      setForm(f => ({ ...f, guestName: user?.fullName || '', guestEmail: user?.email || '', guestPhone: user?.phone || '' }));
+      setForm(f => ({ ...f, guestName: user?.fullName || '', guestEmail: user?.email || '' }));
     }).catch(() => setError('Room not found')).finally(() => setLoading(false));
   }, [roomId, isAuthenticated]);
 
@@ -37,21 +41,8 @@ export default function BookingPage() {
   const pricePerNight = Number(room?.roomType?.pricePerNight || 0);
   const totalPrice = totalNights * pricePerNight;
 
-  const handlePhoneChange = (e) => {
-    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
-    if (value.length <= 10) {
-      setForm({ ...form, guestPhone: value });
-      if (value.length > 0 && value.length !== 10) {
-        setPhoneError('Phone number must be exactly 10 digits');
-      } else {
-        setPhoneError('');
-      }
-    }
-  };
-
   const handleContinueToPayment = (e) => {
-    e.preventDefault(); setError(''); setPhoneError('');
-    if (form.guestPhone.length !== 10) { setPhoneError('Phone number must be exactly 10 digits'); return; }
+    e.preventDefault(); setError('');
     if (!form.checkInDate || !form.checkOutDate) { setError('Please select check-in and check-out dates'); return; }
     if (form.checkInDate < today) { setError('Check-in cannot be before today'); return; }
     if (new Date(form.checkInDate) >= new Date(form.checkOutDate)) { setError('Check-out must be after check-in'); return; }
@@ -97,11 +88,7 @@ export default function BookingPage() {
         <form onSubmit={handleContinueToPayment} className="space-y-5">
           <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Full Name</label><input type="text" required value={form.guestName} onChange={e => setForm({...form, guestName: e.target.value})} className={inputClass} /></div>
           <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label><input type="email" required value={form.guestEmail} onChange={e => setForm({...form, guestEmail: e.target.value})} className={inputClass} /></div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label>
-            <input type="tel" required value={form.guestPhone} onChange={handlePhoneChange} placeholder="Enter 10-digit phone number" maxLength={10} className={inputClass} />
-            {phoneError && <p className="mt-1 text-xs text-red-400">{phoneError}</p>}
-          </div>
+          <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label><input type="tel" required value={form.guestPhone} onChange={e => setForm({...form, guestPhone: e.target.value})} className={inputClass} /></div>
           <div className="grid grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Check-in</label><input type="date" required min={today} value={form.checkInDate} onChange={e => setForm({...form, checkInDate: e.target.value, checkOutDate: e.target.value >= form.checkOutDate ? '' : form.checkOutDate})} className={inputClass} /></div>
             <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Check-out</label><input type="date" required min={checkoutMinDate} value={form.checkOutDate} onChange={e => setForm({...form, checkOutDate: e.target.value})} className={inputClass} /></div>
