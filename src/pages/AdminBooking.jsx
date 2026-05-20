@@ -11,10 +11,28 @@ export default function AdminBooking() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [form, setForm] = useState({ guestName: '', guestEmail: '', guestPhone: '', checkInDate: '', checkOutDate: '', roomId: '' });
+  const [phoneError, setPhoneError] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const checkoutMinDate = form.checkInDate
     ? new Date(new Date(form.checkInDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     : today;
+
+  const validatePhone = (phone) => {
+    if (!phone) return 'Phone number is required';
+    if (!/^\d*$/.test(phone)) return 'Phone must contain only digits';
+    if (phone.length !== 10) return 'Phone must be exactly 10 digits';
+    return '';
+  };
+
+  const handlePhoneChange = (value) => {
+    const numericValue = value.replace(/\D/g, '').slice(0, 10);
+    setForm({ ...form, guestPhone: numericValue });
+    if (numericValue) {
+      setPhoneError(validatePhone(numericValue));
+    } else {
+      setPhoneError('');
+    }
+  };
 
   useEffect(() => {
     roomService.getAll(0, 100).then((res) => {
@@ -31,6 +49,8 @@ export default function AdminBooking() {
 
   const handleContinue = (e) => {
     e.preventDefault(); setError('');
+    const phError = validatePhone(form.guestPhone);
+    if (phError) { setPhoneError(phError); return; }
     if (!form.roomId) { setError('Please select a room'); return; }
     if (!form.checkInDate || !form.checkOutDate) { setError('Please select dates'); return; }
     if (form.checkInDate < today) { setError('Check-in cannot be before today'); return; }
@@ -89,7 +109,21 @@ export default function AdminBooking() {
             <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Guest Email</label><input type="email" required value={form.guestEmail} onChange={e => setForm({ ...form, guestEmail: e.target.value })} className={inputClass} /></div>
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Guest Phone</label><input type="tel" required value={form.guestPhone} onChange={e => setForm({ ...form, guestPhone: e.target.value })} className={inputClass} /></div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Guest Phone</label>
+              <input
+                type="tel"
+                required
+                value={form.guestPhone}
+                onChange={e => handlePhoneChange(e.target.value)}
+                className={`${inputClass} ${phoneError ? '!border-red-500/50 !ring-red-500/30' : ''}`}
+                placeholder="10-digit phone number"
+                maxLength={10}
+                inputMode="numeric"
+              />
+              {phoneError && <p className="mt-1.5 text-xs text-red-400">{phoneError}</p>}
+              {!phoneError && form.guestPhone && form.guestPhone.length === 10 && <p className="mt-1.5 text-xs text-green-400">✓ Valid phone</p>}
+            </div>
             <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Room</label>
               <select required value={form.roomId} onChange={e => handleRoomChange(e.target.value)} className={inputClass}>
                 <option value="">Select Room</option>

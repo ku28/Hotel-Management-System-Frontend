@@ -131,6 +131,7 @@ export const reservationService = {
 
 export const paymentService = {
   getAll: (page = 0, size = 10) => api.get(`/api/payment/all?page=${page}&size=${size}`),
+  getAllByStatus: (status, page = 0, size = 1000) => api.get(`/api/payments/status/${status}?page=${page}&size=${size}`),
   create: (data) => api.post('/api/payment/post', data),
   getTotalRevenue: () => api.get('/api/payments/total-revenue'),
 };
@@ -160,11 +161,11 @@ export const amenityService = {
 };
 
 export const hotelAmenityService = {
-  addToHotel: (data) => api.post('/api/hotelamenity/post', data),
+  addToHotel: (data) => api.post('/api/hotel-management/hotel-amenities', data),
 };
 
 export const roomAmenityService = {
-  addToRoom: (data) => api.post('/api/roomAmenity/post', data),
+  addToRoom: (data) => api.post('/api/room-management/room-amenities', data),
 };
 
 export const authService = {

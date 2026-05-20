@@ -50,13 +50,13 @@ export default function AdminReservations() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">All Reservations</h1>
           <p className="text-gray-400 text-sm mt-1">{totalElements} total reservations</p>
         </div>
       </div>
-      <div className="bg-gray-800/50 backdrop-blur rounded-xl border border-gray-700 overflow-hidden">
+      <div className="bg-gray-800/50 backdrop-blur rounded-xl border border-gray-700 overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-700 bg-gray-800/80">
@@ -82,14 +82,14 @@ export default function AdminReservations() {
                 <td className="py-3 px-4 text-gray-300">{r.roomNumber}</td>
                 <td className="py-3 px-4">
                   {editingId === r.reservationId ? (
-                    <input type="date" value={editForm.checkInDate} onChange={e => setEditForm({ ...editForm, checkInDate: e.target.value })} className={inputClass} />
+                    <input type="date" min={new Date().toISOString().split('T')[0]} value={editForm.checkInDate} onChange={e => setEditForm({ ...editForm, checkInDate: e.target.value, checkOutDate: e.target.value >= editForm.checkOutDate ? '' : editForm.checkOutDate })} className={inputClass} />
                   ) : (
                     <span className="text-gray-300">{r.checkInDate}</span>
                   )}
                 </td>
                 <td className="py-3 px-4">
                   {editingId === r.reservationId ? (
-                    <input type="date" value={editForm.checkOutDate} onChange={e => setEditForm({ ...editForm, checkOutDate: e.target.value })} className={inputClass} />
+                    <input type="date" min={editForm.checkInDate || new Date().toISOString().split('T')[0]} value={editForm.checkOutDate} onChange={e => setEditForm({ ...editForm, checkOutDate: e.target.value })} className={inputClass} />
                   ) : (
                     <span className="text-gray-300">{r.checkOutDate}</span>
                   )}

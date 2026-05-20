@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { adminService, reviewService } from '../services/hotelApi';
+import { adminService, reviewService, paymentService } from '../services/hotelApi';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
@@ -7,37 +7,55 @@ const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [totalReviewCount, setTotalReviewCount] = useState(0);
+  const [allReviews, setAllReviews] = useState([]);
+  const [actualTotalRevenue, setActualTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       adminService.getDashboard(),
       reviewService.getAll(0, 1), // Fetch page 0 with size 1 just to get totalElements
-    ]).then(([dashRes, reviewRes]) => {
+      paymentService.getTotalRevenue(),
+    ]).then(async ([dashRes, reviewRes, revenueRes]) => {
       setStats(dashRes.data?.data);
-      setTotalReviewCount(reviewRes.data?.data?.totalElements || 0);
+      const totalReviews = reviewRes.data?.data?.totalElements || 0;
+      setTotalReviewCount(totalReviews);
+      setActualTotalRevenue(revenueRes.data?.data || 0);
+
+      // Fetch all reviews for accurate rating distribution
+      if (totalReviews > 0) {
+        try {
+          const allReviewsRes = await reviewService.getAll(0, Math.min(totalReviews, 1000));
+          setAllReviews(allReviewsRes.data?.data?.content || []);
+        } catch {
+          setAllReviews(dashRes.data?.data?.recentReviews || []);
+        }
+      }
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" /></div>;
 
   const recentBookings = stats?.recentBookings || [];
-  const recentReviews = stats?.recentReviews || [];
-  const totalRevenue = stats?.totalRevenue || 0;
+  const totalRevenue = actualTotalRevenue;
   const totalReservations = stats?.totalReservations || 0;
 
   const bookingsByMonth = {};
   recentBookings.forEach((b) => { const m = b.checkInDate?.substring(0, 7) || 'Unknown'; bookingsByMonth[m] = (bookingsByMonth[m] || 0) + 1; });
   const barData = Object.entries(bookingsByMonth).sort(([a], [b]) => a.localeCompare(b)).map(([month, count]) => ({ month: month.substring(5), bookings: count }));
 
+  // Use all reviews for accurate rating distribution
+  const reviewsForAnalytics = allReviews.length > 0 ? allReviews : (stats?.recentReviews || []);
   const ratingDist = { '1★': 0, '2★': 0, '3★': 0, '4★': 0, '5★': 0 };
-  recentReviews.forEach((r) => { ratingDist[`${r.rating}★`] = (ratingDist[`${r.rating}★`] || 0) + 1; });
+  reviewsForAnalytics.forEach((r) => { ratingDist[`${r.rating}★`] = (ratingDist[`${r.rating}★`] || 0) + 1; });
   const pieData = Object.entries(ratingDist).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value }));
-  const avgRating = recentReviews.length > 0 ? (recentReviews.reduce((s, r) => s + r.rating, 0) / recentReviews.length).toFixed(1) : '0.0';
+  const avgRating = reviewsForAnalytics.length > 0 ? (reviewsForAnalytics.reduce((s, r) => s + r.rating, 0) / reviewsForAnalytics.length).toFixed(1) : '0.0';
 
+  // Revenue trend - use booking count per month × average revenue per booking
+  const avgRevenuePerBooking = totalReservations > 0 ? totalRevenue / totalReservations : 0;
   const revenueByMonth = {};
   recentBookings.forEach((b) => { const m = b.checkInDate?.substring(0, 7) || 'Unknown'; revenueByMonth[m] = (revenueByMonth[m] || 0) + 1; });
-  const lineData = Object.entries(revenueByMonth).sort(([a], [b]) => a.localeCompare(b)).map(([month, count]) => ({ month: month.substring(5), revenue: count * 250 }));
+  const lineData = Object.entries(revenueByMonth).sort(([a], [b]) => a.localeCompare(b)).map(([month, count]) => ({ month: month.substring(5), revenue: Math.round(count * avgRevenuePerBooking) }));
 
   const tooltipStyle = { backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px', color: '#e5e7eb' };
 

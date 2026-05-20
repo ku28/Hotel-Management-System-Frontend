@@ -14,10 +14,28 @@ export default function BookingPage() {
   const [paymentMethod, setPaymentMethod] = useState('PAY_ON_PREMISES');
   const [form, setForm] = useState({ guestName: '', guestEmail: '', guestPhone: '', checkInDate: '', checkOutDate: '' });
   const [error, setError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const checkoutMinDate = form.checkInDate
     ? new Date(new Date(form.checkInDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     : today;
+
+  const validatePhone = (phone) => {
+    if (!phone) return 'Phone number is required';
+    if (!/^\d*$/.test(phone)) return 'Phone must contain only digits';
+    if (phone.length !== 10) return 'Phone must be exactly 10 digits';
+    return '';
+  };
+
+  const handlePhoneChange = (value) => {
+    const numericValue = value.replace(/\D/g, '').slice(0, 10);
+    setForm(f => ({ ...f, guestPhone: numericValue }));
+    if (numericValue) {
+      setPhoneError(validatePhone(numericValue));
+    } else {
+      setPhoneError('');
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -43,6 +61,8 @@ export default function BookingPage() {
 
   const handleContinueToPayment = (e) => {
     e.preventDefault(); setError('');
+    const phError = validatePhone(form.guestPhone);
+    if (phError) { setPhoneError(phError); return; }
     if (!form.checkInDate || !form.checkOutDate) { setError('Please select check-in and check-out dates'); return; }
     if (form.checkInDate < today) { setError('Check-in cannot be before today'); return; }
     if (new Date(form.checkInDate) >= new Date(form.checkOutDate)) { setError('Check-out must be after check-in'); return; }
@@ -88,8 +108,22 @@ export default function BookingPage() {
         <form onSubmit={handleContinueToPayment} className="space-y-5">
           <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Full Name</label><input type="text" required value={form.guestName} onChange={e => setForm({...form, guestName: e.target.value})} className={inputClass} /></div>
           <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label><input type="email" required value={form.guestEmail} onChange={e => setForm({...form, guestEmail: e.target.value})} className={inputClass} /></div>
-          <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label><input type="tel" required value={form.guestPhone} onChange={e => setForm({...form, guestPhone: e.target.value})} className={inputClass} /></div>
-          <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label>
+            <input
+              type="tel"
+              required
+              value={form.guestPhone}
+              onChange={e => handlePhoneChange(e.target.value)}
+              className={`${inputClass} ${phoneError ? '!border-red-500/50 !ring-red-500/30' : ''}`}
+              placeholder="10-digit phone number"
+              maxLength={10}
+              inputMode="numeric"
+            />
+            {phoneError && <p className="mt-1.5 text-xs text-red-400">{phoneError}</p>}
+            {!phoneError && form.guestPhone && form.guestPhone.length === 10 && <p className="mt-1.5 text-xs text-green-400">✓ Valid phone number</p>}
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Check-in</label><input type="date" required min={today} value={form.checkInDate} onChange={e => setForm({...form, checkInDate: e.target.value, checkOutDate: e.target.value >= form.checkOutDate ? '' : form.checkOutDate})} className={inputClass} /></div>
             <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Check-out</label><input type="date" required min={checkoutMinDate} value={form.checkOutDate} onChange={e => setForm({...form, checkOutDate: e.target.value})} className={inputClass} /></div>
           </div>
