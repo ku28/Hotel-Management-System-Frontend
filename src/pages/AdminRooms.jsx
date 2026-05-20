@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { roomService, roomTypeService, amenityService, roomAmenityService, hotelService } from '../services/hotelApi';
+import { cachedFetch, invalidateCache } from '../services/cache';
+import RefreshButton from '../components/RefreshButton';
 
 export default function AdminRooms() {
   const navigate = useNavigate();
@@ -16,61 +18,72 @@ export default function AdminRooms() {
   const [editingRoom, setEditingRoom] = useState(null);
   const [roomForm, setRoomForm] = useState({ roomNumber: '', roomTypeId: '', hotelId: '', isAvailable: true });
   const [typeForm, setTypeForm] = useState({ typeName: '', description: '', maxOccupancy: '', pricePerNight: '' });
-  const [linkForm, setLinkForm] = useState({ roomId: '', amenityId: '' });
+  const [linkForm, setLinkForm] = useState({ roomId: '', amenityIds: [] });
   const [saving, setSaving] = useState(false);
-  const [roomError, setRoomError] = useState('');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
   const fetchInitial = async () => {
-    try {
+    await cachedFetch('admin-rooms-init', async () => {
       const [hRes, tRes, aRes] = await Promise.all([
         hotelService.getAll(0, 100, ''),
         roomTypeService.getAll(0, 100),
         amenityService.getAll(0, 100),
       ]);
-      setHotels(hRes.data?.data?.content || []);
-      setRoomTypes(tRes.data?.data?.content || []);
-      setAmenities(aRes.data?.data?.content || []);
-    } catch (e) { console.error(e); }
+      return {
+        hotels: hRes.data?.data?.content || [],
+        roomTypes: tRes.data?.data?.content || [],
+        amenities: aRes.data?.data?.content || [],
+      };
+    }, [], (data) => {
+      setHotels(data.hotels);
+      setRoomTypes(data.roomTypes);
+      setAmenities(data.amenities);
+    }, () => {});
   };
 
-  const fetchRooms = async (hotelId) => {
-    setLoading(true);
-    try {
-      const res = hotelId
-        ? await roomService.getByHotel(hotelId)
-        : await roomService.getAll(0, 100);
-      setRooms(res.data?.data?.content || []);
-    } catch (e) { console.error(e); }
-    setLoading(false);
+  const fetchRooms = async (hotelId, pg = page) => {
+    await cachedFetch('admin-rooms-list', async (hId, p, s) => {
+      const res = hId
+        ? await roomService.getByHotel(hId, p, s)
+        : await roomService.getAll(p, s);
+      const data = res.data?.data;
+      return {
+        content: (data?.content || []).sort((a, b) => b.roomId - a.roomId),
+        totalPages: data?.totalPages || 0,
+        totalElements: data?.totalElements || 0,
+      };
+    }, [hotelId, pg, 10], (data) => {
+      setRooms(data.content);
+      setTotalPages(data.totalPages);
+      setTotalElements(data.totalElements);
+    }, setLoading);
   };
 
   useEffect(() => { fetchInitial(); }, []);
-  useEffect(() => { fetchRooms(selectedHotel); }, [selectedHotel]);
+  useEffect(() => { fetchRooms(selectedHotel, page); }, [selectedHotel, page]);
+
+  const handleRefresh = async () => {
+    invalidateCache('admin-rooms');
+    await Promise.all([fetchInitial(), fetchRooms(selectedHotel, page)]);
+  };
+
 
   const handleSaveRoom = async (e) => {
-    e.preventDefault(); setSaving(true); setRoomError('');
-    const hotelId = roomForm.hotelId || selectedHotel;
-    if (!hotelId) {
-      setRoomError('Please select a hotel');
-      setSaving(false);
-      return;
-    }
-    if (!roomForm.roomTypeId) {
-      setRoomError('Please select a room type');
-      setSaving(false);
-      return;
-    }
+    e.preventDefault(); setSaving(true);
     try {
       if (editingRoom) {
         await roomService.update(editingRoom.roomId, { roomNumber: parseInt(roomForm.roomNumber), roomTypeId: parseInt(roomForm.roomTypeId), hotelId: parseInt(roomForm.hotelId), isAvailable: roomForm.isAvailable });
       } else {
-        await roomService.create({ roomNumber: parseInt(roomForm.roomNumber), roomTypeId: parseInt(roomForm.roomTypeId), hotelId: parseInt(hotelId), isAvailable: roomForm.isAvailable });
+        await roomService.create({ roomNumber: parseInt(roomForm.roomNumber), roomTypeId: parseInt(roomForm.roomTypeId), hotelId: parseInt(roomForm.hotelId || selectedHotel), isAvailable: roomForm.isAvailable });
       }
       setShowRoomForm(false); setEditingRoom(null);
       setRoomForm({ roomNumber: '', roomTypeId: '', hotelId: '', isAvailable: true });
-      setRoomError('');
-      fetchRooms(selectedHotel);
-    } catch (e) { setRoomError(e.response?.data?.message || 'Failed to save room'); console.error(e); }
+      setPage(0);
+      invalidateCache('admin-rooms');
+      fetchRooms(selectedHotel, 0);
+    } catch (e) { console.error(e); }
     setSaving(false);
   };
 
@@ -82,18 +95,32 @@ export default function AdminRooms() {
 
   const handleDeleteRoom = async (id) => {
     if (!confirm('Delete this room?')) return;
-    try { await roomService.delete(id); fetchRooms(selectedHotel); } catch (e) { console.error(e); }
+    try { await roomService.delete(id); invalidateCache('admin-rooms'); fetchRooms(selectedHotel); } catch (e) { console.error(e); }
   };
 
   const handleSaveType = async (e) => {
     e.preventDefault(); setSaving(true);
-    try { await roomTypeService.create({ ...typeForm, maxOccupancy: parseInt(typeForm.maxOccupancy), pricePerNight: parseFloat(typeForm.pricePerNight) }); setShowTypeForm(false); setTypeForm({ typeName: '', description: '', maxOccupancy: '', pricePerNight: '' }); fetchInitial(); } catch (e) { console.error(e); }
+    try { await roomTypeService.create({ ...typeForm, maxOccupancy: parseInt(typeForm.maxOccupancy), pricePerNight: parseFloat(typeForm.pricePerNight) }); setShowTypeForm(false); setTypeForm({ typeName: '', description: '', maxOccupancy: '', pricePerNight: '' }); invalidateCache('admin-rooms'); fetchInitial(); } catch (e) { console.error(e); }
     setSaving(false);
+  };
+
+  const handleToggleAmenity = (amenityId) => {
+    setLinkForm(prev => {
+      const ids = prev.amenityIds.includes(amenityId)
+        ? prev.amenityIds.filter(id => id !== amenityId)
+        : [...prev.amenityIds, amenityId];
+      return { ...prev, amenityIds: ids };
+    });
   };
 
   const handleLinkAmenity = async (e) => {
     e.preventDefault(); setSaving(true);
-    try { await roomAmenityService.addToRoom({ roomId: parseInt(linkForm.roomId), amenityId: parseInt(linkForm.amenityId) }); setShowLinkForm(false); setLinkForm({ roomId: '', amenityId: '' }); fetchRooms(selectedHotel); } catch (e) { console.error(e); }
+    try {
+      for (const amenityId of linkForm.amenityIds) {
+        await roomAmenityService.addToRoom({ roomId: parseInt(linkForm.roomId), amenityId: parseInt(amenityId) });
+      }
+      setShowLinkForm(false); setLinkForm({ roomId: '', amenityIds: [] }); invalidateCache('admin-rooms'); fetchRooms(selectedHotel);
+    } catch (e) { console.error(e); }
     setSaving(false);
   };
 
@@ -101,12 +128,13 @@ export default function AdminRooms() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">Rooms & Amenities</h1>
-          <p className="text-gray-400 text-sm mt-1">Manage rooms, room types, and room amenities</p>
+          <p className="text-gray-400 text-sm mt-1">Manage rooms, room types, and room amenities · {totalElements} total rooms</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <RefreshButton onRefresh={handleRefresh} />
           <button onClick={() => setShowTypeForm(true)} className="px-4 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700 cursor-pointer">+ Room Type</button>
           <button onClick={() => setShowLinkForm(true)} className="px-4 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700 cursor-pointer">Link Amenity</button>
           <button onClick={() => { setShowRoomForm(true); setEditingRoom(null); setRoomForm({ roomNumber: '', roomTypeId: '', hotelId: selectedHotel, isAvailable: true }); }} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 cursor-pointer">+ Room</button>
@@ -115,7 +143,7 @@ export default function AdminRooms() {
 
       {/* Hotel Filter Dropdown */}
       <div className="mb-6">
-        <select value={selectedHotel} onChange={e => setSelectedHotel(e.target.value)} className="px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[300px]">
+        <select value={selectedHotel} onChange={e => { setSelectedHotel(e.target.value); setPage(0); }} className="px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[300px]">
           <option value="">All Hotels</option>
           {hotels.map(h => <option key={h.hotelId} value={h.hotelId}>{h.name} — {h.location}</option>)}
         </select>
@@ -152,29 +180,48 @@ export default function AdminRooms() {
             <label className="flex items-center gap-2 text-sm text-gray-300">
               <input type="checkbox" checked={roomForm.isAvailable} onChange={e => setRoomForm({ ...roomForm, isAvailable: e.target.checked })} className="w-4 h-4 rounded" />Available
             </label>
-            <div className="sm:col-span-4 flex items-center gap-2">
+            <div className="sm:col-span-4 flex gap-2">
               <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-50 cursor-pointer">{saving ? 'Saving...' : 'Save'}</button>
-              <button type="button" onClick={() => { setShowRoomForm(false); setEditingRoom(null); setRoomError(''); }} className="px-4 py-2.5 bg-gray-700 text-gray-300 text-sm font-medium rounded-xl cursor-pointer">Cancel</button>
-              {roomError && <span className="text-sm text-red-400 ml-2">{roomError}</span>}
+              <button type="button" onClick={() => { setShowRoomForm(false); setEditingRoom(null); }} className="px-4 py-2.5 bg-gray-700 text-gray-300 text-sm font-medium rounded-xl cursor-pointer">Cancel</button>
             </div>
           </form>
         </div>
       )}
       {showLinkForm && (
         <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 mb-6">
-          <h3 className="font-semibold text-gray-100 mb-4">Link Amenity to Room</h3>
-          <form onSubmit={handleLinkAmenity} className="grid sm:grid-cols-2 gap-4">
-            <select required value={linkForm.roomId} onChange={e => setLinkForm({ ...linkForm, roomId: e.target.value })} className={inputClass}>
-              <option value="">Select Room</option>
-              {rooms.map(r => <option key={r.roomId} value={r.roomId}>Room {r.roomNumber} — {r.roomType?.typeName}</option>)}
-            </select>
-            <select required value={linkForm.amenityId} onChange={e => setLinkForm({ ...linkForm, amenityId: e.target.value })} className={inputClass}>
-              <option value="">Select Amenity</option>
-              {amenities.map(a => <option key={a.amenityId} value={a.amenityId}>{a.name}</option>)}
-            </select>
-            <div className="sm:col-span-2 flex gap-2">
-              <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-50 cursor-pointer">{saving ? 'Linking...' : 'Link'}</button>
-              <button type="button" onClick={() => setShowLinkForm(false)} className="px-4 py-2.5 bg-gray-700 text-gray-300 text-sm font-medium rounded-xl cursor-pointer">Cancel</button>
+          <h3 className="font-semibold text-gray-100 mb-4">Link Amenities to Room</h3>
+          <form onSubmit={handleLinkAmenity} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Select Room</label>
+              <select required value={linkForm.roomId} onChange={e => setLinkForm({ ...linkForm, roomId: e.target.value })} className={inputClass}>
+                <option value="">Select Room</option>
+                {rooms.map(r => <option key={r.roomId} value={r.roomId}>Room {r.roomNumber} — {r.roomType?.typeName}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Select Amenities</label>
+              <div className="bg-gray-800 border border-gray-700 rounded-xl p-3 max-h-48 overflow-y-auto space-y-2">
+                {amenities.map(a => (
+                  <label key={a.amenityId} className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-gray-700/50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={linkForm.amenityIds.includes(a.amenityId)}
+                      onChange={() => handleToggleAmenity(a.amenityId)}
+                      className="w-4 h-4 rounded border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 bg-gray-700"
+                    />
+                    <span className="text-sm text-gray-200">{a.name}</span>
+                    {a.description && <span className="text-xs text-gray-500">— {a.description}</span>}
+                  </label>
+                ))}
+                {amenities.length === 0 && <p className="text-sm text-gray-500 text-center py-2">No amenities available</p>}
+              </div>
+              {linkForm.amenityIds.length > 0 && (
+                <p className="text-xs text-blue-400 mt-1.5">{linkForm.amenityIds.length} amenit{linkForm.amenityIds.length === 1 ? 'y' : 'ies'} selected</p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" disabled={saving || linkForm.amenityIds.length === 0} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-50 cursor-pointer">{saving ? 'Linking...' : `Link ${linkForm.amenityIds.length || ''} Amenities`}</button>
+              <button type="button" onClick={() => { setShowLinkForm(false); setLinkForm({ roomId: '', amenityIds: [] }); }} className="px-4 py-2.5 bg-gray-700 text-gray-300 text-sm font-medium rounded-xl cursor-pointer">Cancel</button>
             </div>
           </form>
         </div>
@@ -184,7 +231,7 @@ export default function AdminRooms() {
       {loading ? (
         <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" /></div>
       ) : (
-        <div className="bg-gray-800/50 backdrop-blur rounded-xl border border-gray-700 overflow-hidden">
+        <div className="bg-gray-800/50 backdrop-blur rounded-xl border border-gray-700 overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-700 bg-gray-800/80">
@@ -240,6 +287,15 @@ export default function AdminRooms() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex justify-center gap-2">
+          <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="px-4 py-2 text-sm bg-gray-800 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-700 disabled:opacity-50 cursor-pointer">Previous</button>
+          <span className="px-4 py-2 text-sm text-gray-400">Page {page + 1} of {totalPages}</span>
+          <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1} className="px-4 py-2 text-sm bg-gray-800 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-700 disabled:opacity-50 cursor-pointer">Next</button>
         </div>
       )}
     </div>

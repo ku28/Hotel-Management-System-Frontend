@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hotelService, amenityService, hotelAmenityService, roomService } from '../services/hotelApi';
+import { cachedFetch, invalidateCache } from '../services/cache';
+import RefreshButton from '../components/RefreshButton';
 
 export default function AdminHotels() {
   const navigate = useNavigate();
@@ -16,22 +18,19 @@ export default function AdminHotels() {
   const [editingHotel, setEditingHotel] = useState(null);
   const [form, setForm] = useState({ name: '', location: '', description: '' });
   const [amenityForm, setAmenityForm] = useState({ name: '', description: '' });
-  const [linkForm, setLinkForm] = useState({ hotelId: '', amenityId: '' });
+  const [linkForm, setLinkForm] = useState({ hotelId: '', amenityIds: [] });
   const [saving, setSaving] = useState(false);
   const [expandedHotel, setExpandedHotel] = useState(null);
   const [expandedRooms, setExpandedRooms] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
   const fetchData = async () => {
-    setLoading(true);
-    try {
+    await cachedFetch('admin-hotels', async (p) => {
       const [hRes, aRes] = await Promise.all([
-        hotelService.getAll(page, 10, ''),
+        hotelService.getAll(p, 10, ''),
         amenityService.getAll(0, 100),
       ]);
       const hotelList = hRes.data?.data?.content || [];
-      setTotalPages(hRes.data?.data?.totalPages || 0);
-      setAmenities(aRes.data?.data?.content || []);
       const counts = {};
       const enrichedHotels = await Promise.all(hotelList.map(async (h) => {
         try {
@@ -46,13 +45,27 @@ export default function AdminHotels() {
           return { ...h, amenities: [] };
         }
       }));
-      setHotels(enrichedHotels);
-      setRoomCounts(counts);
-    } catch (e) { console.error(e); }
-    setLoading(false);
+      return {
+        hotels: enrichedHotels.sort((a, b) => b.hotelId - a.hotelId),
+        amenities: aRes.data?.data?.content || [],
+        roomCounts: counts,
+        totalPages: hRes.data?.data?.totalPages || 0,
+      };
+    }, [page], (data) => {
+      setHotels(data.hotels);
+      setAmenities(data.amenities);
+      setRoomCounts(data.roomCounts);
+      setTotalPages(data.totalPages);
+    }, setLoading);
   };
 
   useEffect(() => { fetchData(); }, [page]);
+
+  const handleRefresh = async () => {
+    invalidateCache('admin-hotels');
+    await fetchData();
+  };
+
 
   const handleViewRooms = async (hotel) => {
     if (expandedHotel === hotel.hotelId) { setExpandedHotel(null); return; }
@@ -73,6 +86,7 @@ export default function AdminHotels() {
       else { await hotelService.create(form); }
       setShowForm(false); setEditingHotel(null);
       setForm({ name: '', location: '', description: '' });
+      invalidateCache('admin-hotels');
       fetchData();
     } catch (e) { console.error(e); }
     setSaving(false);
@@ -80,7 +94,7 @@ export default function AdminHotels() {
 
   const handleDeleteHotel = async (id) => {
     if (!confirm('Are you sure you want to delete this hotel?')) return;
-    try { await hotelService.delete(id); fetchData(); } catch (e) { console.error(e); }
+    try { await hotelService.delete(id); invalidateCache('admin-hotels'); fetchData(); } catch (e) { console.error(e); }
   };
 
   const handleEditHotel = (h) => {
@@ -91,13 +105,27 @@ export default function AdminHotels() {
 
   const handleSaveAmenity = async (e) => {
     e.preventDefault(); setSaving(true);
-    try { await amenityService.create(amenityForm); setShowAmenityForm(false); setAmenityForm({ name: '', description: '' }); fetchData(); } catch (e) { console.error(e); }
+    try { await amenityService.create(amenityForm); setShowAmenityForm(false); setAmenityForm({ name: '', description: '' }); invalidateCache('admin-hotels'); fetchData(); } catch (e) { console.error(e); }
     setSaving(false);
+  };
+
+  const handleToggleAmenity = (amenityId) => {
+    setLinkForm(prev => {
+      const ids = prev.amenityIds.includes(amenityId)
+        ? prev.amenityIds.filter(id => id !== amenityId)
+        : [...prev.amenityIds, amenityId];
+      return { ...prev, amenityIds: ids };
+    });
   };
 
   const handleLinkAmenity = async (e) => {
     e.preventDefault(); setSaving(true);
-    try { await hotelAmenityService.addToHotel({ hotelId: parseInt(linkForm.hotelId), amenityId: parseInt(linkForm.amenityId) }); setShowLinkForm(false); setLinkForm({ hotelId: '', amenityId: '' }); fetchData(); } catch (e) { console.error(e); }
+    try {
+      for (const amenityId of linkForm.amenityIds) {
+        await hotelAmenityService.addToHotel({ hotelId: parseInt(linkForm.hotelId), amenityId: parseInt(amenityId) });
+      }
+      setShowLinkForm(false); setLinkForm({ hotelId: '', amenityIds: [] }); invalidateCache('admin-hotels'); fetchData();
+    } catch (e) { console.error(e); }
     setSaving(false);
   };
 
@@ -107,12 +135,13 @@ export default function AdminHotels() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">Hotels & Amenities</h1>
           <p className="text-gray-400 text-sm mt-1">Manage hotels and their amenities</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <RefreshButton onRefresh={handleRefresh} />
           <button onClick={() => setShowAmenityForm(true)} className="px-4 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700 cursor-pointer">+ Amenity</button>
           <button onClick={() => setShowLinkForm(true)} className="px-4 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700 cursor-pointer">Link Amenity</button>
           <button onClick={() => { setShowForm(true); setEditingHotel(null); setForm({ name: '', location: '', description: '' }); }} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 cursor-pointer">+ Hotel</button>
@@ -148,26 +177,46 @@ export default function AdminHotels() {
       )}
       {showLinkForm && (
         <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 mb-6">
-          <h3 className="font-semibold text-gray-100 mb-4">Link Amenity to Hotel</h3>
-          <form onSubmit={handleLinkAmenity} className="grid sm:grid-cols-2 gap-4">
-            <select required value={linkForm.hotelId} onChange={e => setLinkForm({ ...linkForm, hotelId: e.target.value })} className={inputClass}>
-              <option value="">Select Hotel</option>
-              {hotels.map(h => <option key={h.hotelId} value={h.hotelId}>{h.name}</option>)}
-            </select>
-            <select required value={linkForm.amenityId} onChange={e => setLinkForm({ ...linkForm, amenityId: e.target.value })} className={inputClass}>
-              <option value="">Select Amenity</option>
-              {amenities.map(a => <option key={a.amenityId} value={a.amenityId}>{a.name}</option>)}
-            </select>
-            <div className="sm:col-span-2 flex gap-2">
-              <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-50 cursor-pointer">{saving ? 'Saving...' : 'Link'}</button>
-              <button type="button" onClick={() => setShowLinkForm(false)} className="px-4 py-2.5 bg-gray-700 text-gray-300 text-sm font-medium rounded-xl cursor-pointer">Cancel</button>
+          <h3 className="font-semibold text-gray-100 mb-4">Link Amenities to Hotel</h3>
+          <form onSubmit={handleLinkAmenity} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Select Hotel</label>
+              <select required value={linkForm.hotelId} onChange={e => setLinkForm({ ...linkForm, hotelId: e.target.value })} className={inputClass}>
+                <option value="">Select Hotel</option>
+                {hotels.map(h => <option key={h.hotelId} value={h.hotelId}>{h.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Select Amenities</label>
+              <div className="bg-gray-800 border border-gray-700 rounded-xl p-3 max-h-48 overflow-y-auto space-y-2">
+                {amenities.map(a => (
+                  <label key={a.amenityId} className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-gray-700/50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={linkForm.amenityIds.includes(a.amenityId)}
+                      onChange={() => handleToggleAmenity(a.amenityId)}
+                      className="w-4 h-4 rounded border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 bg-gray-700"
+                    />
+                    <span className="text-sm text-gray-200">{a.name}</span>
+                    {a.description && <span className="text-xs text-gray-500">— {a.description}</span>}
+                  </label>
+                ))}
+                {amenities.length === 0 && <p className="text-sm text-gray-500 text-center py-2">No amenities available. Create one first.</p>}
+              </div>
+              {linkForm.amenityIds.length > 0 && (
+                <p className="text-xs text-blue-400 mt-1.5">{linkForm.amenityIds.length} amenit{linkForm.amenityIds.length === 1 ? 'y' : 'ies'} selected</p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" disabled={saving || linkForm.amenityIds.length === 0} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-50 cursor-pointer">{saving ? 'Linking...' : `Link ${linkForm.amenityIds.length || ''} Amenities`}</button>
+              <button type="button" onClick={() => { setShowLinkForm(false); setLinkForm({ hotelId: '', amenityIds: [] }); }} className="px-4 py-2.5 bg-gray-700 text-gray-300 text-sm font-medium rounded-xl cursor-pointer">Cancel</button>
             </div>
           </form>
         </div>
       )}
 
       {/* Hotels Table */}
-      <div className="bg-gray-800/50 backdrop-blur rounded-xl border border-gray-700 overflow-hidden">
+      <div className="bg-gray-800/50 backdrop-blur rounded-xl border border-gray-700 overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-700 bg-gray-800/80">

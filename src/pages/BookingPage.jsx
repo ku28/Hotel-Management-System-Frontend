@@ -6,7 +6,7 @@ import useAuthStore from '../store/authStore';
 export default function BookingPage() {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, isAdmin } = useAuthStore();
   const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -20,15 +20,37 @@ export default function BookingPage() {
     ? new Date(new Date(form.checkInDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     : today;
 
+  const validatePhone = (phone) => {
+    if (!phone) return 'Phone number is required';
+    if (!/^\d*$/.test(phone)) return 'Phone must contain only digits';
+    if (phone.length !== 10) return 'Phone must be exactly 10 digits';
+    return '';
+  };
+
+  const handlePhoneChange = (value) => {
+    const numericValue = value.replace(/\D/g, '').slice(0, 10);
+    setForm(f => ({ ...f, guestPhone: numericValue }));
+    if (numericValue) {
+      setPhoneError(validatePhone(numericValue));
+    } else {
+      setPhoneError('');
+    }
+  };
+
   useEffect(() => {
     if (!isAuthenticated) {
       // Redirect to login but pass current path so user comes back here after login
       navigate('/login', { state: { from: `/booking/${roomId}` } });
       return;
     }
+    // Admin users should not book through the public flow
+    if (isAdmin()) {
+      navigate('/admin', { replace: true });
+      return;
+    }
     roomService.getById(roomId).then((res) => {
       setRoom(res.data?.data);
-      setForm(f => ({ ...f, guestName: user?.fullName || '', guestEmail: user?.email || '', guestPhone: user?.phone || '' }));
+      setForm(f => ({ ...f, guestName: user?.fullName || '', guestEmail: user?.email || '' }));
     }).catch(() => setError('Room not found')).finally(() => setLoading(false));
   }, [roomId, isAuthenticated]);
 
@@ -37,21 +59,10 @@ export default function BookingPage() {
   const pricePerNight = Number(room?.roomType?.pricePerNight || 0);
   const totalPrice = totalNights * pricePerNight;
 
-  const handlePhoneChange = (e) => {
-    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
-    if (value.length <= 10) {
-      setForm({ ...form, guestPhone: value });
-      if (value.length > 0 && value.length !== 10) {
-        setPhoneError('Phone number must be exactly 10 digits');
-      } else {
-        setPhoneError('');
-      }
-    }
-  };
-
   const handleContinueToPayment = (e) => {
-    e.preventDefault(); setError(''); setPhoneError('');
-    if (form.guestPhone.length !== 10) { setPhoneError('Phone number must be exactly 10 digits'); return; }
+    e.preventDefault(); setError('');
+    const phError = validatePhone(form.guestPhone);
+    if (phError) { setPhoneError(phError); return; }
     if (!form.checkInDate || !form.checkOutDate) { setError('Please select check-in and check-out dates'); return; }
     if (form.checkInDate < today) { setError('Check-in cannot be before today'); return; }
     if (new Date(form.checkInDate) >= new Date(form.checkOutDate)) { setError('Check-out must be after check-in'); return; }
@@ -99,10 +110,20 @@ export default function BookingPage() {
           <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label><input type="email" required value={form.guestEmail} onChange={e => setForm({...form, guestEmail: e.target.value})} className={inputClass} /></div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label>
-            <input type="tel" required value={form.guestPhone} onChange={handlePhoneChange} placeholder="Enter 10-digit phone number" maxLength={10} className={inputClass} />
-            {phoneError && <p className="mt-1 text-xs text-red-400">{phoneError}</p>}
+            <input
+              type="tel"
+              required
+              value={form.guestPhone}
+              onChange={e => handlePhoneChange(e.target.value)}
+              className={`${inputClass} ${phoneError ? '!border-red-500/50 !ring-red-500/30' : ''}`}
+              placeholder="10-digit phone number"
+              maxLength={10}
+              inputMode="numeric"
+            />
+            {phoneError && <p className="mt-1.5 text-xs text-red-400">{phoneError}</p>}
+            {!phoneError && form.guestPhone && form.guestPhone.length === 10 && <p className="mt-1.5 text-xs text-green-400">✓ Valid phone number</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Check-in</label><input type="date" required min={today} value={form.checkInDate} onChange={e => setForm({...form, checkInDate: e.target.value, checkOutDate: e.target.value >= form.checkOutDate ? '' : form.checkOutDate})} className={inputClass} /></div>
             <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Check-out</label><input type="date" required min={checkoutMinDate} value={form.checkOutDate} onChange={e => setForm({...form, checkOutDate: e.target.value})} className={inputClass} /></div>
           </div>

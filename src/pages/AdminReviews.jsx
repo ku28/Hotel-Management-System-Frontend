@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { reviewService } from '../services/hotelApi';
+import { cachedFetch, invalidateCache } from '../services/cache';
+import RefreshButton from '../components/RefreshButton';
 
 export default function AdminReviews() {
   const [reviews, setReviews] = useState([]);
@@ -10,24 +12,35 @@ export default function AdminReviews() {
   const [filterRating, setFilterRating] = useState(0);
 
   const fetchData = async () => {
-    setLoading(true);
-    try {
-      const res = filterRating > 0
-        ? await reviewService.getByRating(filterRating, page, 15)
-        : await reviewService.getAll(page, 15);
-      setReviews(res.data?.data?.content || []);
-      setTotalPages(res.data?.data?.totalPages || 0);
-      setTotalElements(res.data?.data?.totalElements || 0);
-    } catch (e) { console.error(e); }
-    setLoading(false);
+    await cachedFetch(
+      'admin-reviews',
+      async (rating, p, s) => {
+        const res = rating > 0
+          ? await reviewService.getByRating(rating, p, s)
+          : await reviewService.getAll(p, s);
+        return {
+          content: (res.data?.data?.content || []).sort((a, b) => b.reviewId - a.reviewId),
+          totalPages: res.data?.data?.totalPages || 0,
+          totalElements: res.data?.data?.totalElements || 0,
+        };
+      },
+      [filterRating, page, 15],
+      (data) => {
+        setReviews(data.content);
+        setTotalPages(data.totalPages);
+        setTotalElements(data.totalElements);
+      },
+      setLoading
+    );
   };
 
   useEffect(() => { fetchData(); }, [page, filterRating]);
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this review?')) return;
-    try { await reviewService.delete(id); fetchData(); } catch (e) { console.error(e); }
+    try { await reviewService.delete(id); invalidateCache('admin-reviews'); fetchData(); } catch (e) { console.error(e); }
   };
+
 
   const avgRating = reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : '0.0';
 
@@ -46,6 +59,7 @@ export default function AdminReviews() {
           <h1 className="text-2xl font-bold text-gray-100">Reviews & Ratings</h1>
           <p className="text-gray-400 text-sm mt-1">{totalElements} total reviews · Average {avgRating}/5</p>
         </div>
+        <RefreshButton onRefresh={async () => { invalidateCache('admin-reviews'); await fetchData(); }} />
       </div>
       <div className="flex gap-2 mb-6">
         <button onClick={() => { setFilterRating(0); setPage(0); }}

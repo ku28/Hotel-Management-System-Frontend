@@ -93,7 +93,7 @@ export const hotelService = {
   getById: (id) => api.get(`/api/hotels/${id}`).then(itemResponse),
   create: (data) => api.post('/api/hotels', data).then(itemResponse),
   update: (id, data) => api.put(`/api/hotels/${id}`, data).then(itemResponse),
-  delete: (id) => api.delete(`/api/hotel-management/hotels/${id}`),
+  delete: (id) => api.delete(`/api/hotels/${id}`),
 };
 
 export const roomService = {
@@ -131,6 +131,7 @@ export const reservationService = {
 
 export const paymentService = {
   getAll: (page = 0, size = 10) => api.get(`/api/payment/all?page=${page}&size=${size}`),
+  getAllByStatus: (status, page = 0, size = 1000) => api.get(`/api/payments/status/${status}?page=${page}&size=${size}`),
   create: (data) => api.post('/api/payment/post', data),
   getTotalRevenue: () => api.get('/api/payments/total-revenue'),
 };
@@ -156,7 +157,7 @@ export const amenityService = {
     api.get('/api/amenities/search/by-room', { params: { roomId } }).then((res) => pageResponse(res, 'amenities')),
   create: (data) => api.post('/api/amenities', data).then(itemResponse),
   update: (id, data) => api.put(`/api/amenities/${id}`, data).then(itemResponse),
-  delete: (id) => api.delete(`/api/hotel-management/amenities/${id}`),
+  delete: (id) => api.delete(`/api/amenities/${id}`),
 };
 
 export const hotelAmenityService = {
