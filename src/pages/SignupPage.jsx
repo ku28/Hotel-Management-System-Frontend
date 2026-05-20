@@ -7,6 +7,7 @@ export default function SignupPage() {
   const [form, setForm] = useState({ fullName: '', email: '', password: '', phone: '' });
   const [error, setError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login, isAuthenticated } = useAuthStore();
@@ -27,12 +28,30 @@ export default function SignupPage() {
     return '';
   };
 
+  const validatePhone = (phone) => {
+    if (!phone) return '';
+    if (!/^\d*$/.test(phone)) return 'Phone number must contain only digits';
+    if (phone.length !== 10) return 'Phone number must be exactly 10 digits';
+    return '';
+  };
+
   const handlePasswordChange = (value) => {
     setForm({ ...form, password: value });
     if (value) {
       setPasswordError(validatePassword(value));
     } else {
       setPasswordError('');
+    }
+  };
+
+  const handlePhoneChange = (value) => {
+    // Only allow numeric input
+    const numericValue = value.replace(/\D/g, '').slice(0, 10);
+    setForm({ ...form, phone: numericValue });
+    if (numericValue) {
+      setPhoneError(validatePhone(numericValue));
+    } else {
+      setPhoneError('');
     }
   };
 
@@ -44,6 +63,15 @@ export default function SignupPage() {
       setPasswordError(pwError);
       setLoading(false);
       return;
+    }
+
+    if (form.phone) {
+      const phError = validatePhone(form.phone);
+      if (phError) {
+        setPhoneError(phError);
+        setLoading(false);
+        return;
+      }
     }
 
     try {
@@ -97,8 +125,23 @@ export default function SignupPage() {
             {!passwordError && form.password && <p className="mt-1.5 text-xs text-green-400">✓ Valid password</p>}
             <p className="mt-1 text-xs text-gray-500">Only letters (a-z, A-Z) and numbers (0-9) allowed</p>
           </div>
-          <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label><input type="tel" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className={inputClass} /></div>
-          <button type="submit" disabled={loading || !!passwordError} className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 cursor-pointer transition-colors">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label>
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={e => handlePhoneChange(e.target.value)}
+              className={`${inputClass} ${phoneError ? '!border-red-500/50 !ring-red-500/30' : ''}`}
+              placeholder="10-digit phone number"
+              maxLength={10}
+              inputMode="numeric"
+              pattern="\d{10}"
+            />
+            {phoneError && <p className="mt-1.5 text-xs text-red-400">{phoneError}</p>}
+            {!phoneError && form.phone && form.phone.length === 10 && <p className="mt-1.5 text-xs text-green-400">✓ Valid phone number</p>}
+            <p className="mt-1 text-xs text-gray-500">Must be exactly 10 digits</p>
+          </div>
+          <button type="submit" disabled={loading || !!passwordError || !!phoneError} className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 cursor-pointer transition-colors">
             {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>

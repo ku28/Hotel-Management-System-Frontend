@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg> },
@@ -15,17 +15,55 @@ export default function AdminLayout() {
   const { isAuthenticated, isAdmin, user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => { if (!isAuthenticated || !isAdmin()) navigate('/login'); }, [isAuthenticated]);
+
+  // Close sidebar on route change (mobile)
+  useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
   const handleLogout = () => { logout(); navigate('/'); };
   const isActive = (path) => path === '/admin' ? location.pathname === '/admin' : location.pathname.startsWith(path);
 
   return (
-    <div className="min-h-screen bg-gray-950 flex font-[Inter,system-ui,sans-serif]">
-      <aside className="w-64 bg-gray-900 border-r border-gray-800 text-white flex flex-col min-h-screen fixed">
-        <div className="px-6 py-5 border-b border-gray-800">
+    <div className="min-h-screen bg-gray-950 font-[Inter,system-ui,sans-serif]">
+      {/* Mobile header bar */}
+      <div className="lg:hidden bg-gray-900 border-b border-gray-800 sticky top-0 z-50 flex items-center justify-between px-4 h-14">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="p-2 text-gray-400 hover:text-white cursor-pointer"
+          aria-label="Open menu"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
+        <h1 className="text-sm font-bold text-gray-100">HMS<span className="text-blue-400">.</span> Admin</h1>
+        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white">{user?.fullName?.charAt(0) || 'A'}</div>
+      </div>
+
+      {/* Overlay for mobile sidebar */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed top-0 left-0 z-50 w-64 bg-gray-900 border-r border-gray-800 text-white flex flex-col min-h-screen
+        transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0 lg:z-auto
+      `}>
+        <div className="px-6 py-5 border-b border-gray-800 flex items-center justify-between">
           <h1 className="text-lg font-bold tracking-tight">Hotel Management System<span className="text-blue-400">.</span> Admin</h1>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-1 text-gray-400 hover:text-white cursor-pointer"
+            aria-label="Close menu"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
         </div>
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => (
@@ -43,7 +81,9 @@ export default function AdminLayout() {
           <button onClick={handleLogout} className="w-full text-left text-sm text-gray-400 hover:text-white cursor-pointer transition-colors">Sign Out</button>
         </div>
       </aside>
-      <main className="flex-1 ml-64 p-8"><Outlet /></main>
+
+      {/* Main content */}
+      <main className="lg:ml-64 p-4 sm:p-6 lg:p-8 min-h-screen"><Outlet /></main>
     </div>
   );
 }
