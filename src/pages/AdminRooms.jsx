@@ -18,7 +18,6 @@ export default function AdminRooms() {
   const [typeForm, setTypeForm] = useState({ typeName: '', description: '', maxOccupancy: '', pricePerNight: '' });
   const [linkForm, setLinkForm] = useState({ roomId: '', amenityId: '' });
   const [saving, setSaving] = useState(false);
-  const [roomError, setRoomError] = useState('');
 
   const fetchInitial = async () => {
     try {
@@ -48,29 +47,17 @@ export default function AdminRooms() {
   useEffect(() => { fetchRooms(selectedHotel); }, [selectedHotel]);
 
   const handleSaveRoom = async (e) => {
-    e.preventDefault(); setSaving(true); setRoomError('');
-    const hotelId = roomForm.hotelId || selectedHotel;
-    if (!hotelId) {
-      setRoomError('Please select a hotel');
-      setSaving(false);
-      return;
-    }
-    if (!roomForm.roomTypeId) {
-      setRoomError('Please select a room type');
-      setSaving(false);
-      return;
-    }
+    e.preventDefault(); setSaving(true);
     try {
       if (editingRoom) {
         await roomService.update(editingRoom.roomId, { roomNumber: parseInt(roomForm.roomNumber), roomTypeId: parseInt(roomForm.roomTypeId), hotelId: parseInt(roomForm.hotelId), isAvailable: roomForm.isAvailable });
       } else {
-        await roomService.create({ roomNumber: parseInt(roomForm.roomNumber), roomTypeId: parseInt(roomForm.roomTypeId), hotelId: parseInt(hotelId), isAvailable: roomForm.isAvailable });
+        await roomService.create({ roomNumber: parseInt(roomForm.roomNumber), roomTypeId: parseInt(roomForm.roomTypeId), hotelId: parseInt(roomForm.hotelId || selectedHotel), isAvailable: roomForm.isAvailable });
       }
       setShowRoomForm(false); setEditingRoom(null);
       setRoomForm({ roomNumber: '', roomTypeId: '', hotelId: '', isAvailable: true });
-      setRoomError('');
       fetchRooms(selectedHotel);
-    } catch (e) { setRoomError(e.response?.data?.message || 'Failed to save room'); console.error(e); }
+    } catch (e) { console.error(e); }
     setSaving(false);
   };
 
@@ -152,10 +139,9 @@ export default function AdminRooms() {
             <label className="flex items-center gap-2 text-sm text-gray-300">
               <input type="checkbox" checked={roomForm.isAvailable} onChange={e => setRoomForm({ ...roomForm, isAvailable: e.target.checked })} className="w-4 h-4 rounded" />Available
             </label>
-            <div className="sm:col-span-4 flex items-center gap-2">
+            <div className="sm:col-span-4 flex gap-2">
               <button type="submit" disabled={saving} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-50 cursor-pointer">{saving ? 'Saving...' : 'Save'}</button>
-              <button type="button" onClick={() => { setShowRoomForm(false); setEditingRoom(null); setRoomError(''); }} className="px-4 py-2.5 bg-gray-700 text-gray-300 text-sm font-medium rounded-xl cursor-pointer">Cancel</button>
-              {roomError && <span className="text-sm text-red-400 ml-2">{roomError}</span>}
+              <button type="button" onClick={() => { setShowRoomForm(false); setEditingRoom(null); }} className="px-4 py-2.5 bg-gray-700 text-gray-300 text-sm font-medium rounded-xl cursor-pointer">Cancel</button>
             </div>
           </form>
         </div>

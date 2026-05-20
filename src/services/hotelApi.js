@@ -93,7 +93,7 @@ export const hotelService = {
   getById: (id) => api.get(`/api/hotels/${id}`).then(itemResponse),
   create: (data) => api.post('/api/hotels', data).then(itemResponse),
   update: (id, data) => api.put(`/api/hotels/${id}`, data).then(itemResponse),
-  delete: (id) => api.delete(`/api/hotel-management/hotels/${id}`),
+  delete: (id) => api.delete(`/api/hotels/${id}`),
 };
 
 export const roomService = {
@@ -156,15 +156,15 @@ export const amenityService = {
     api.get('/api/amenities/search/by-room', { params: { roomId } }).then((res) => pageResponse(res, 'amenities')),
   create: (data) => api.post('/api/amenities', data).then(itemResponse),
   update: (id, data) => api.put(`/api/amenities/${id}`, data).then(itemResponse),
-  delete: (id) => api.delete(`/api/hotel-management/amenities/${id}`),
+  delete: (id) => api.delete(`/api/amenities/${id}`),
 };
 
 export const hotelAmenityService = {
-  addToHotel: (data) => api.post('/api/hotel-management/hotel-amenities', data),
+  addToHotel: (data) => api.post('/api/hotelamenity/post', data),
 };
 
 export const roomAmenityService = {
-  addToRoom: (data) => api.post('/api/room-management/room-amenities', data),
+  addToRoom: (data) => api.post('/api/roomAmenity/post', data),
 };
 
 export const authService = {

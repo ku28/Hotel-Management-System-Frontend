@@ -6,7 +6,6 @@ import useAuthStore from '../store/authStore';
 export default function SignupPage() {
   const [form, setForm] = useState({ fullName: '', email: '', password: '', phone: '' });
   const [error, setError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
@@ -15,29 +14,12 @@ export default function SignupPage() {
     if (isAuthenticated) navigate('/hotels', { replace: true });
   }, [isAuthenticated]);
 
-  const handlePhoneChange = (e) => {
-    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
-    if (value.length <= 10) {
-      setForm({ ...form, phone: value });
-      if (value.length > 0 && value.length !== 10) {
-        setPhoneError('Phone number must be exactly 10 digits');
-      } else {
-        setPhoneError('');
-      }
-    }
-  };
-
   const handleSubmit = async (e) => {
-    e.preventDefault(); setError(''); setPhoneError('');
-    if (form.phone.length !== 10) {
-      setPhoneError('Phone number must be exactly 10 digits');
-      return;
-    }
-    setLoading(true);
+    e.preventDefault(); setError(''); setLoading(true);
     try {
       const res = await authService.register(form);
       const data = res.data?.data;
-      login({ fullName: data.fullName, email: data.email, role: data.role, phone: data.phone }, data.token);
+      login({ fullName: data.fullName, email: data.email, role: data.role }, data.token);
       navigate('/');
     } catch (err) { setError(err.response?.data?.message || 'Registration failed'); }
     finally { setLoading(false); }
@@ -57,11 +39,7 @@ export default function SignupPage() {
           <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Full Name</label><input type="text" required value={form.fullName} onChange={e => setForm({...form, fullName: e.target.value})} className={inputClass} /></div>
           <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label><input type="email" required value={form.email} onChange={e => setForm({...form, email: e.target.value})} className={inputClass} /></div>
           <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Password</label><input type="password" required minLength={6} value={form.password} onChange={e => setForm({...form, password: e.target.value})} className={inputClass} /></div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label>
-            <input type="tel" required value={form.phone} onChange={handlePhoneChange} placeholder="Enter 10-digit phone number" maxLength={10} className={inputClass} />
-            {phoneError && <p className="mt-1 text-xs text-red-400">{phoneError}</p>}
-          </div>
+          <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label><input type="tel" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className={inputClass} /></div>
           <button type="submit" disabled={loading} className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 cursor-pointer transition-colors">
             {loading ? 'Creating Account...' : 'Create Account'}
           </button>
