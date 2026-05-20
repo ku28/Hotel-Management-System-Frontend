@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { hotelService } from '../services/hotelApi';
+import { cachedFetch, invalidateCache } from '../services/cache';
+import RefreshButton from '../components/RefreshButton';
 
 export default function HotelsPage() {
   const [hotels, setHotels] = useState([]);
@@ -10,22 +12,29 @@ export default function HotelsPage() {
   const [totalPages, setTotalPages] = useState(0);
 
   const fetchHotels = async () => {
-    setLoading(true);
-    try {
-      const res = await hotelService.getAll(page, 12, search);
-      setHotels(res.data?.data?.content || []);
-      setTotalPages(res.data?.data?.totalPages || 0);
-    } catch (err) { console.error('Failed to fetch hotels:', err); }
-    finally { setLoading(false); }
+    await cachedFetch('hotels-page', async (p, s, q) => {
+      const res = await hotelService.getAll(p, s, q);
+      return {
+        content: res.data?.data?.content || [],
+        totalPages: res.data?.data?.totalPages || 0,
+      };
+    }, [page, 12, search], (data) => {
+      setHotels(data.content);
+      setTotalPages(data.totalPages);
+    }, setLoading);
   };
 
   useEffect(() => { fetchHotels(); }, [page, search]);
 
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
-      <div className="mb-10">
-        <h1 className="text-3xl font-bold text-gray-100">Explore Hotels</h1>
-        <p className="mt-2 text-gray-500">Find your perfect accommodation</p>
+      <div className="flex items-center justify-between mb-10">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-100">Explore Hotels</h1>
+          <p className="mt-2 text-gray-500">Find your perfect accommodation</p>
+        </div>
+        <RefreshButton onRefresh={async () => { invalidateCache('hotels-page'); await fetchHotels(); }} />
       </div>
       <div className="mb-8">
         <div className="relative max-w-md">

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminService, reviewService, paymentService } from '../services/hotelApi';
+import { cachedFetch, invalidateCache } from '../services/cache';
+import RefreshButton from '../components/RefreshButton';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
@@ -11,28 +13,42 @@ export default function AdminDashboard() {
   const [actualTotalRevenue, setActualTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
-      adminService.getDashboard(),
-      reviewService.getAll(0, 1), // Fetch page 0 with size 1 just to get totalElements
-      paymentService.getTotalRevenue(),
-    ]).then(async ([dashRes, reviewRes, revenueRes]) => {
-      setStats(dashRes.data?.data);
-      const totalReviews = reviewRes.data?.data?.totalElements || 0;
-      setTotalReviewCount(totalReviews);
-      setActualTotalRevenue(revenueRes.data?.data || 0);
+  const loadAll = async () => {
+    let loaded = 0;
+    const total = 3;
+    const checkDone = () => { loaded++; if (loaded >= total) setLoading(false); };
 
-      // Fetch all reviews for accurate rating distribution
-      if (totalReviews > 0) {
-        try {
-          const allReviewsRes = await reviewService.getAll(0, Math.min(totalReviews, 1000));
-          setAllReviews(allReviewsRes.data?.data?.content || []);
-        } catch {
-          setAllReviews(dashRes.data?.data?.recentReviews || []);
-        }
+    cachedFetch('dashboard-stats', async () => {
+      const res = await adminService.getDashboard();
+      return res.data?.data;
+    }, [], (data) => setStats(data), () => {}).then(checkDone).catch(checkDone);
+
+    cachedFetch('dashboard-reviews', async () => {
+      const reviewRes = await reviewService.getAll(0, 1);
+      const t = reviewRes.data?.data?.totalElements || 0;
+      let reviews = [];
+      if (t > 0) {
+        const allRes = await reviewService.getAll(0, Math.min(t, 1000));
+        reviews = allRes.data?.data?.content || [];
       }
-    }).catch(console.error).finally(() => setLoading(false));
-  }, []);
+      return { totalReviewCount: t, allReviews: reviews };
+    }, [], (data) => {
+      setTotalReviewCount(data.totalReviewCount);
+      setAllReviews(data.allReviews);
+    }, () => {}).then(checkDone).catch(checkDone);
+
+    cachedFetch('dashboard-revenue', async () => {
+      const res = await paymentService.getTotalRevenue();
+      return res.data?.data || 0;
+    }, [], (data) => setActualTotalRevenue(data), () => {}).then(checkDone).catch(checkDone);
+  };
+
+  const handleRefresh = async () => {
+    invalidateCache('dashboard');
+    await loadAll();
+  };
+
+  useEffect(() => { loadAll(); }, []);
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" /></div>;
 
@@ -61,9 +77,12 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-100">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">Overview of your hotel management system</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-100">Dashboard</h1>
+          <p className="text-gray-500 text-sm mt-1">Overview of your hotel management system</p>
+        </div>
+        <RefreshButton onRefresh={handleRefresh} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {[

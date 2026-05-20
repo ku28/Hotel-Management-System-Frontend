@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { roomService, roomTypeService, amenityService, roomAmenityService, hotelService } from '../services/hotelApi';
+import { cachedFetch, invalidateCache } from '../services/cache';
+import RefreshButton from '../components/RefreshButton';
 
 export default function AdminRooms() {
   const navigate = useNavigate();
@@ -23,36 +25,50 @@ export default function AdminRooms() {
   const [totalElements, setTotalElements] = useState(0);
 
   const fetchInitial = async () => {
-    try {
+    await cachedFetch('admin-rooms-init', async () => {
       const [hRes, tRes, aRes] = await Promise.all([
         hotelService.getAll(0, 100, ''),
         roomTypeService.getAll(0, 100),
         amenityService.getAll(0, 100),
       ]);
-      setHotels(hRes.data?.data?.content || []);
-      setRoomTypes(tRes.data?.data?.content || []);
-      setAmenities(aRes.data?.data?.content || []);
-    } catch (e) { console.error(e); }
+      return {
+        hotels: hRes.data?.data?.content || [],
+        roomTypes: tRes.data?.data?.content || [],
+        amenities: aRes.data?.data?.content || [],
+      };
+    }, [], (data) => {
+      setHotels(data.hotels);
+      setRoomTypes(data.roomTypes);
+      setAmenities(data.amenities);
+    }, () => {});
   };
 
   const fetchRooms = async (hotelId, pg = page) => {
-    setLoading(true);
-    try {
-      const res = hotelId
-        ? await roomService.getByHotel(hotelId, pg, 10)
-        : await roomService.getAll(pg, 10);
+    await cachedFetch('admin-rooms-list', async (hId, p, s) => {
+      const res = hId
+        ? await roomService.getByHotel(hId, p, s)
+        : await roomService.getAll(p, s);
       const data = res.data?.data;
-      // Sort by roomId descending so newest entries appear first
-      const sortedRooms = (data?.content || []).sort((a, b) => b.roomId - a.roomId);
-      setRooms(sortedRooms);
-      setTotalPages(data?.totalPages || 0);
-      setTotalElements(data?.totalElements || 0);
-    } catch (e) { console.error(e); }
-    setLoading(false);
+      return {
+        content: (data?.content || []).sort((a, b) => b.roomId - a.roomId),
+        totalPages: data?.totalPages || 0,
+        totalElements: data?.totalElements || 0,
+      };
+    }, [hotelId, pg, 10], (data) => {
+      setRooms(data.content);
+      setTotalPages(data.totalPages);
+      setTotalElements(data.totalElements);
+    }, setLoading);
   };
 
   useEffect(() => { fetchInitial(); }, []);
   useEffect(() => { fetchRooms(selectedHotel, page); }, [selectedHotel, page]);
+
+  const handleRefresh = async () => {
+    invalidateCache('admin-rooms');
+    await Promise.all([fetchInitial(), fetchRooms(selectedHotel, page)]);
+  };
+
 
   const handleSaveRoom = async (e) => {
     e.preventDefault(); setSaving(true);
@@ -65,6 +81,7 @@ export default function AdminRooms() {
       setShowRoomForm(false); setEditingRoom(null);
       setRoomForm({ roomNumber: '', roomTypeId: '', hotelId: '', isAvailable: true });
       setPage(0);
+      invalidateCache('admin-rooms');
       fetchRooms(selectedHotel, 0);
     } catch (e) { console.error(e); }
     setSaving(false);
@@ -78,12 +95,12 @@ export default function AdminRooms() {
 
   const handleDeleteRoom = async (id) => {
     if (!confirm('Delete this room?')) return;
-    try { await roomService.delete(id); fetchRooms(selectedHotel); } catch (e) { console.error(e); }
+    try { await roomService.delete(id); invalidateCache('admin-rooms'); fetchRooms(selectedHotel); } catch (e) { console.error(e); }
   };
 
   const handleSaveType = async (e) => {
     e.preventDefault(); setSaving(true);
-    try { await roomTypeService.create({ ...typeForm, maxOccupancy: parseInt(typeForm.maxOccupancy), pricePerNight: parseFloat(typeForm.pricePerNight) }); setShowTypeForm(false); setTypeForm({ typeName: '', description: '', maxOccupancy: '', pricePerNight: '' }); fetchInitial(); } catch (e) { console.error(e); }
+    try { await roomTypeService.create({ ...typeForm, maxOccupancy: parseInt(typeForm.maxOccupancy), pricePerNight: parseFloat(typeForm.pricePerNight) }); setShowTypeForm(false); setTypeForm({ typeName: '', description: '', maxOccupancy: '', pricePerNight: '' }); invalidateCache('admin-rooms'); fetchInitial(); } catch (e) { console.error(e); }
     setSaving(false);
   };
 
@@ -102,7 +119,7 @@ export default function AdminRooms() {
       for (const amenityId of linkForm.amenityIds) {
         await roomAmenityService.addToRoom({ roomId: parseInt(linkForm.roomId), amenityId: parseInt(amenityId) });
       }
-      setShowLinkForm(false); setLinkForm({ roomId: '', amenityIds: [] }); fetchRooms(selectedHotel);
+      setShowLinkForm(false); setLinkForm({ roomId: '', amenityIds: [] }); invalidateCache('admin-rooms'); fetchRooms(selectedHotel);
     } catch (e) { console.error(e); }
     setSaving(false);
   };
@@ -117,6 +134,7 @@ export default function AdminRooms() {
           <p className="text-gray-400 text-sm mt-1">Manage rooms, room types, and room amenities · {totalElements} total rooms</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <RefreshButton onRefresh={handleRefresh} />
           <button onClick={() => setShowTypeForm(true)} className="px-4 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700 cursor-pointer">+ Room Type</button>
           <button onClick={() => setShowLinkForm(true)} className="px-4 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700 cursor-pointer">Link Amenity</button>
           <button onClick={() => { setShowRoomForm(true); setEditingRoom(null); setRoomForm({ roomNumber: '', roomTypeId: '', hotelId: selectedHotel, isAvailable: true }); }} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 cursor-pointer">+ Room</button>
