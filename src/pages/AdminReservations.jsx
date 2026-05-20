@@ -10,6 +10,9 @@ export default function AdminReservations() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ checkInDate: '', checkOutDate: '' });
   const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  const today = new Date().toISOString().split('T')[0];
 
   const fetchData = async () => {
     setLoading(true);
@@ -27,13 +30,43 @@ export default function AdminReservations() {
   const handleEdit = (r) => {
     setEditingId(r.reservationId);
     setEditForm({ checkInDate: r.checkInDate, checkOutDate: r.checkOutDate });
+    setEditError('');
+  };
+
+  // Compute the minimum checkout date: must be after check-in and not before today
+  const getCheckoutMinDate = () => {
+    if (!editForm.checkInDate) return today;
+    const checkInNextDay = new Date(new Date(editForm.checkInDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // Checkout cannot be before today either
+    return checkInNextDay > today ? checkInNextDay : today;
   };
 
   const handleSave = async (r) => {
+    setEditError('');
+
+    // Validation: checkout cannot be before today
+    if (editForm.checkOutDate < today) {
+      setEditError('Check-out date cannot be a past date');
+      return;
+    }
+
+    // Validation: checkout cannot be same as check-in
+    if (editForm.checkOutDate === editForm.checkInDate) {
+      setEditError('Check-out date cannot be the same as check-in date');
+      return;
+    }
+
+    // Validation: checkout must be after check-in
+    if (new Date(editForm.checkOutDate) <= new Date(editForm.checkInDate)) {
+      setEditError('Check-out date must be after check-in date');
+      return;
+    }
+
     setSaving(true);
     try {
       await reservationService.update(r.reservationId, { ...r, checkInDate: editForm.checkInDate, checkOutDate: editForm.checkOutDate });
       setEditingId(null);
+      setEditError('');
       fetchData();
     } catch (e) { console.error(e); }
     setSaving(false);
@@ -42,6 +75,17 @@ export default function AdminReservations() {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this reservation?')) return;
     try { await reservationService.delete(id); fetchData(); } catch (e) { console.error(e); }
+  };
+
+  const handleCheckInDateChange = (e) => {
+    const newCheckIn = e.target.value;
+    setEditForm(prev => {
+      // If checkout is same or before new check-in, reset it
+      if (prev.checkOutDate && prev.checkOutDate <= newCheckIn) {
+        return { checkInDate: newCheckIn, checkOutDate: '' };
+      }
+      return { ...prev, checkInDate: newCheckIn };
+    });
   };
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" /></div>;
@@ -82,14 +126,17 @@ export default function AdminReservations() {
                 <td className="py-3 px-4 text-gray-300">{r.roomNumber}</td>
                 <td className="py-3 px-4">
                   {editingId === r.reservationId ? (
-                    <input type="date" value={editForm.checkInDate} onChange={e => setEditForm({ ...editForm, checkInDate: e.target.value })} className={inputClass} />
+                    <input type="date" value={editForm.checkInDate} onChange={handleCheckInDateChange} className={inputClass} />
                   ) : (
                     <span className="text-gray-300">{r.checkInDate}</span>
                   )}
                 </td>
                 <td className="py-3 px-4">
                   {editingId === r.reservationId ? (
-                    <input type="date" value={editForm.checkOutDate} onChange={e => setEditForm({ ...editForm, checkOutDate: e.target.value })} className={inputClass} />
+                    <div>
+                      <input type="date" value={editForm.checkOutDate} min={getCheckoutMinDate()} onChange={e => setEditForm({ ...editForm, checkOutDate: e.target.value })} className={inputClass} />
+                      {editError && <p className="text-xs text-red-400 mt-1 max-w-[180px]">{editError}</p>}
+                    </div>
                   ) : (
                     <span className="text-gray-300">{r.checkOutDate}</span>
                   )}
@@ -99,7 +146,7 @@ export default function AdminReservations() {
                     {editingId === r.reservationId ? (
                       <>
                         <button onClick={() => handleSave(r)} disabled={saving} className="px-3 py-1.5 bg-green-600/20 text-green-400 text-xs font-medium rounded-lg hover:bg-green-600/30 cursor-pointer">{saving ? '...' : 'Save'}</button>
-                        <button onClick={() => setEditingId(null)} className="px-3 py-1.5 bg-gray-700 text-gray-300 text-xs font-medium rounded-lg cursor-pointer">Cancel</button>
+                        <button onClick={() => { setEditingId(null); setEditError(''); }} className="px-3 py-1.5 bg-gray-700 text-gray-300 text-xs font-medium rounded-lg cursor-pointer">Cancel</button>
                       </>
                     ) : (
                       <>
