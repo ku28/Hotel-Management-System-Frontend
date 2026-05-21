@@ -14,6 +14,7 @@ import AdminRooms from './pages/AdminRooms';
 import AdminBooking from './pages/AdminBooking';
 import AdminReservations from './pages/AdminReservations';
 import AdminReviews from './pages/AdminReviews';
+import AdminUsers from './pages/AdminUsers';
 import useAuthStore from './store/authStore';
 import './index.css';
 
@@ -69,6 +70,7 @@ export default function App() {
           <Route path="rooms" element={<AdminRooms />} />
           <Route path="booking" element={<AdminBooking />} />
           <Route path="reservations" element={<AdminReservations />} />
+          <Route path="users" element={<AdminUsers />} />
           <Route path="reviews" element={<AdminReviews />} />
         </Route>
       </Routes>

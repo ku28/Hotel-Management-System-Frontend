@@ -176,3 +176,7 @@ export const authService = {
 export const adminService = {
   getDashboard: () => api.get('/api/admin/dashboard'),
 };
+
+export const userService = {
+  getAll: (page = 0, size = 15) => api.get(`/api/admin/users?page=${page}&size=${size}`),
+};
