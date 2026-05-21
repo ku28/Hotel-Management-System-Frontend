@@ -276,7 +276,7 @@ export default function AdminHotels() {
                                   {r.isAvailable ? 'Available' : 'Booked'}
                                 </span>
                               </div>
-                              <p className="text-xs text-gray-400">{r.roomType?.typeName} — ₹{r.roomType?.pricePerNight}/night</p>
+                              <p className="text-xs text-gray-400">{r.roomType?.typeName} — ${r.roomType?.pricePerNight}/night</p>
                             </div>
                           ))}
                         </div>

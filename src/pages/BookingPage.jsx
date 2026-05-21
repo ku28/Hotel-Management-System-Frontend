@@ -101,13 +101,13 @@ export default function BookingPage() {
       </div>
 
       <h1 className="text-2xl font-bold text-gray-100 mb-2">{step === 1 ? 'Book Your Stay' : 'Payment Instructions'}</h1>
-      {room && <p className="text-gray-400 mb-8">Room {room.roomNumber} — {room.roomType?.typeName} — ₹{pricePerNight.toFixed(2)}/night</p>}
+      {room && <p className="text-gray-400 mb-8">Room {room.roomNumber} — {room.roomType?.typeName} — ${pricePerNight.toFixed(2)}/night</p>}
       {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400">{error}</div>}
 
       {step === 1 && (
         <form onSubmit={handleContinueToPayment} className="space-y-5">
-          <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Full Name</label><input type="text" required value={form.guestName} onChange={e => setForm({...form, guestName: e.target.value})} className={inputClass} /></div>
-          <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label><input type="email" required value={form.guestEmail} onChange={e => setForm({...form, guestEmail: e.target.value})} className={inputClass} /></div>
+          <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Full Name</label><input type="text" required value={form.guestName} onChange={e => setForm({ ...form, guestName: e.target.value })} className={inputClass} /></div>
+          <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label><input type="email" required value={form.guestEmail} onChange={e => setForm({ ...form, guestEmail: e.target.value })} className={inputClass} /></div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">Phone</label>
             <input
@@ -124,14 +124,14 @@ export default function BookingPage() {
             {!phoneError && form.guestPhone && form.guestPhone.length === 10 && <p className="mt-1.5 text-xs text-green-400">✓ Valid phone number</p>}
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Check-in</label><input type="date" required min={today} value={form.checkInDate} onChange={e => setForm({...form, checkInDate: e.target.value, checkOutDate: e.target.value >= form.checkOutDate ? '' : form.checkOutDate})} className={inputClass} /></div>
-            <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Check-out</label><input type="date" required min={checkoutMinDate} value={form.checkOutDate} onChange={e => setForm({...form, checkOutDate: e.target.value})} className={inputClass} /></div>
+            <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Check-in</label><input type="date" required min={today} value={form.checkInDate} onChange={e => setForm({ ...form, checkInDate: e.target.value, checkOutDate: e.target.value >= form.checkOutDate ? '' : form.checkOutDate })} className={inputClass} /></div>
+            <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Check-out</label><input type="date" required min={checkoutMinDate} value={form.checkOutDate} onChange={e => setForm({ ...form, checkOutDate: e.target.value })} className={inputClass} /></div>
           </div>
           {totalNights > 0 && (
             <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/20">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">₹{pricePerNight.toFixed(2)}/night × {totalNights} night{totalNights > 1 ? 's' : ''}</span>
-                <span className="font-bold text-gray-100">₹{totalPrice.toFixed(2)}</span>
+                <span className="text-gray-400">${pricePerNight.toFixed(2)}/night × {totalNights} night{totalNights > 1 ? 's' : ''}</span>
+                <span className="font-bold text-gray-100">${totalPrice.toFixed(2)}</span>
               </div>
             </div>
           )}
@@ -149,7 +149,7 @@ export default function BookingPage() {
               <div className="flex justify-between"><span className="text-gray-400">Duration</span><span className="text-gray-200">{totalNights} night{totalNights > 1 ? 's' : ''}</span></div>
               <div className="flex justify-between border-t border-gray-700 pt-2 mt-2">
                 <span className="font-semibold text-gray-100">Total</span>
-                <span className="font-bold text-gray-100 text-lg">₹{totalPrice.toFixed(2)}</span>
+                <span className="font-bold text-gray-100 text-lg">${totalPrice.toFixed(2)}</span>
               </div>
             </div>
           </div>

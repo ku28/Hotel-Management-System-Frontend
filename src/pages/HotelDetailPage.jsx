@@ -102,7 +102,7 @@ export default function HotelDetailPage() {
                   <div className="space-y-1 text-sm text-gray-400">
                     <p>{room.roomType.typeName}</p>
                     <p>Up to {room.roomType.maxOccupancy} guests</p>
-                    <p className="text-lg font-bold text-gray-100">₹{room.roomType.pricePerNight}<span className="text-sm font-normal text-gray-500">/night</span></p>
+                    <p className="text-lg font-bold text-gray-100">${room.roomType.pricePerNight}<span className="text-sm font-normal text-gray-500">/night</span></p>
                   </div>
                 )}
                 {room.amenities?.length > 0 && (

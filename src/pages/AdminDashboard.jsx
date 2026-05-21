@@ -21,7 +21,7 @@ export default function AdminDashboard() {
     cachedFetch('dashboard-stats', async () => {
       const res = await adminService.getDashboard();
       return res.data?.data;
-    }, [], (data) => setStats(data), () => {}).then(checkDone).catch(checkDone);
+    }, [], (data) => setStats(data), () => { }).then(checkDone).catch(checkDone);
 
     cachedFetch('dashboard-reviews', async () => {
       const reviewRes = await reviewService.getAll(0, 1);
@@ -35,12 +35,12 @@ export default function AdminDashboard() {
     }, [], (data) => {
       setTotalReviewCount(data.totalReviewCount);
       setAllReviews(data.allReviews);
-    }, () => {}).then(checkDone).catch(checkDone);
+    }, () => { }).then(checkDone).catch(checkDone);
 
     cachedFetch('dashboard-revenue', async () => {
       const res = await paymentService.getTotalRevenue();
       return res.data?.data || 0;
-    }, [], (data) => setActualTotalRevenue(data), () => {}).then(checkDone).catch(checkDone);
+    }, [], (data) => setActualTotalRevenue(data), () => { }).then(checkDone).catch(checkDone);
   };
 
   const handleRefresh = async () => {
@@ -87,7 +87,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {[
           { label: 'Total Reservations', value: totalReservations, sub: 'All time bookings', color: 'blue', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg> },
-          { label: 'Total Revenue', value: `₹${totalRevenue?.toLocaleString() || '0'}`, sub: 'Total payments', color: 'green', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
+          { label: 'Total Revenue', value: `$${totalRevenue?.toLocaleString() || '0'}`, sub: 'Total payments', color: 'green', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
           { label: 'Total Users', value: stats?.totalUsers || 0, sub: 'Registered users', color: 'yellow', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> },
           { label: 'Reviews', value: totalReviewCount, sub: 'Guest reviews', color: 'purple', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg> },
         ].map((card, i) => (
@@ -140,7 +140,7 @@ export default function AdminDashboard() {
           {lineData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={lineData}>
-                <defs><linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient></defs>
+                <defs><linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} /><stop offset="95%" stopColor="#6366f1" stopOpacity={0} /></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#9CA3AF' }} />
                 <YAxis tick={{ fontSize: 12, fill: '#9CA3AF' }} />

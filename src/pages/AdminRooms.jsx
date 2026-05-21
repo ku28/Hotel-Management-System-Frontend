@@ -40,7 +40,7 @@ export default function AdminRooms() {
       setHotels(data.hotels);
       setRoomTypes(data.roomTypes);
       setAmenities(data.amenities);
-    }, () => {});
+    }, () => { });
   };
 
   const fetchRooms = async (hotelId, pg = page) => {
@@ -175,7 +175,7 @@ export default function AdminRooms() {
             </select>
             <select required value={roomForm.roomTypeId} onChange={e => setRoomForm({ ...roomForm, roomTypeId: e.target.value })} className={inputClass}>
               <option value="">Select Room Type</option>
-              {roomTypes.map(t => <option key={t.roomTypeId} value={t.roomTypeId}>{t.typeName} — ₹{t.pricePerNight}/night</option>)}
+              {roomTypes.map(t => <option key={t.roomTypeId} value={t.roomTypeId}>{t.typeName} — ${t.pricePerNight}/night</option>)}
             </select>
             <label className="flex items-center gap-2 text-sm text-gray-300">
               <input type="checkbox" checked={roomForm.isAvailable} onChange={e => setRoomForm({ ...roomForm, isAvailable: e.target.checked })} className="w-4 h-4 rounded" />Available
@@ -251,7 +251,7 @@ export default function AdminRooms() {
                   <td className="py-3 px-4 font-medium text-gray-200">{r.roomNumber}</td>
                   <td className="py-3 px-4 text-gray-400">{r.hotelName || '—'}</td>
                   <td className="py-3 px-4 text-gray-300">{r.roomType?.typeName || '—'}</td>
-                  <td className="py-3 px-4 text-gray-200 font-medium">₹{r.roomType?.pricePerNight || '—'}</td>
+                  <td className="py-3 px-4 text-gray-200 font-medium">${r.roomType?.pricePerNight || '—'}</td>
                   <td className="py-3 px-4 text-gray-400">{r.roomType?.maxOccupancy || '—'}</td>
                   <td className="py-3 px-4">
                     <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${r.isAvailable ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>

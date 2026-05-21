@@ -127,7 +127,7 @@ export default function AdminBooking() {
             <div><label className="block text-sm font-medium text-gray-300 mb-1.5">Room</label>
               <select required value={form.roomId} onChange={e => handleRoomChange(e.target.value)} className={inputClass}>
                 <option value="">Select Room</option>
-                {rooms.map(r => <option key={r.roomId} value={r.roomId}>Room {r.roomNumber} — {r.hotelName ? r.hotelName + ' — ' : ''}{r.roomType?.typeName} — ₹{r.roomType?.pricePerNight}/night</option>)}
+                {rooms.map(r => <option key={r.roomId} value={r.roomId}>Room {r.roomNumber} — {r.hotelName ? r.hotelName + ' — ' : ''}{r.roomType?.typeName} — ${r.roomType?.pricePerNight}/night</option>)}
               </select>
             </div>
           </div>
@@ -138,8 +138,8 @@ export default function AdminBooking() {
           {totalNights > 0 && selectedRoom && (
             <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/20">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">₹{pricePerNight.toFixed(2)}/night × {totalNights} night{totalNights > 1 ? 's' : ''}</span>
-                <span className="font-bold text-gray-100">₹{totalPrice.toFixed(2)}</span>
+                <span className="text-gray-400">${pricePerNight.toFixed(2)}/night × {totalNights} night{totalNights > 1 ? 's' : ''}</span>
+                <span className="font-bold text-gray-100">${totalPrice.toFixed(2)}</span>
               </div>
             </div>
           )}
@@ -157,7 +157,7 @@ export default function AdminBooking() {
               <div className="flex justify-between"><span className="text-gray-400">Dates</span><span className="text-gray-200">{form.checkInDate} → {form.checkOutDate}</span></div>
               <div className="flex justify-between border-t border-gray-700 pt-2 mt-2">
                 <span className="font-semibold text-gray-100">Total</span>
-                <span className="font-bold text-gray-100 text-lg">₹{totalPrice.toFixed(2)}</span>
+                <span className="font-bold text-gray-100 text-lg">${totalPrice.toFixed(2)}</span>
               </div>
             </div>
           </div>
